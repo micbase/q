@@ -1,0 +1,111 @@
+import Docker from 'dockerode'
+import { config } from '../config'
+import * as db from '../db/queries'
+import type { Project, ContainerStatus } from '../models/types'
+
+const docker = new Docker({ socketPath: '/var/run/docker.sock' })
+const LABEL_MANAGED = 'q.managed'
+
+// In-memory map: projectId → container state
+const containers = new Map<string, { id?: string; status: ContainerStatus }>()
+// Idle timers: projectId → timer handle
+const idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+export function getContainerStatus(projectId: string): ContainerStatus {
+  return containers.get(projectId)?.status ?? 'stopped'
+}
+
+// ─── Ensure running ───────────────────────────────────────────────────────────
+
+export async function ensureRunning(project: Project): Promise<string> {
+  const existing = containers.get(project.id)
+  if (existing?.id) {
+    cancelIdleTimer(project.id)
+    return existing.id
+  }
+
+  console.log(`[provisioner] Starting container for project ${project.name}`)
+  containers.set(project.id, { status: 'starting' })
+
+  const container = await docker.createContainer({
+    Image: config.projectImage,
+    Labels: { [LABEL_MANAGED]: 'true' },
+    HostConfig: {
+      Binds: [`${config.projectsDir}/${project.name}:/workspace`],
+    },
+  })
+
+  await container.start()
+
+  const info = await container.inspect()
+  const id = info.Id
+
+  containers.set(project.id, { id, status: 'running' })
+
+  console.log(`[provisioner] Container started for project ${project.name} (${id.slice(0, 12)})`)
+
+  return id
+}
+
+// ─── Idle shutdown ────────────────────────────────────────────────────────────
+
+export function scheduleIdleStop(projectId: string): void {
+  cancelIdleTimer(projectId)
+  const timer = setTimeout(async () => {
+    try {
+      const queued = await db.countQueuedTicketsForProject(projectId)
+      if (queued === 0) {
+        await stopProject(projectId)
+      }
+    } catch (err) {
+      console.error(`[provisioner] Idle stop failed for project ${projectId}:`, err)
+    }
+  }, config.containerIdleTimeoutMs)
+  idleTimers.set(projectId, timer)
+}
+
+function cancelIdleTimer(projectId: string): void {
+  const timer = idleTimers.get(projectId)
+  if (timer) {
+    clearTimeout(timer)
+    idleTimers.delete(projectId)
+  }
+}
+
+// ─── Stop ─────────────────────────────────────────────────────────────────────
+
+async function stopProject(projectId: string): Promise<void> {
+  const entry = containers.get(projectId)
+  if (!entry?.id) return
+
+  const id = entry.id
+  containers.delete(projectId)
+  cancelIdleTimer(projectId)
+
+  console.log(`[provisioner] Stopping container for project ${projectId}`)
+  try {
+    const container = docker.getContainer(id)
+    await container.stop({ t: 5 })
+    await container.remove()
+  } catch (err) {
+    console.warn(`[provisioner] Error stopping container:`, err)
+  }
+}
+
+/** Stop all q-managed containers (found by label) and clear in-memory state */
+export async function stopAll(): Promise<void> {
+  const managed = await docker.listContainers({
+    all: true,
+    filters: { label: [LABEL_MANAGED] },
+  })
+  await Promise.allSettled(managed.map(async (info) => {
+    try {
+      const container = docker.getContainer(info.Id)
+      if (info.State === 'running') await container.stop({ t: 5 })
+      await container.remove()
+    } catch (err) {
+      console.warn(`[provisioner] Error stopping container ${info.Id.slice(0, 12)}:`, err)
+    }
+  }))
+  containers.clear()
+}
