@@ -188,9 +188,7 @@ function handleEvent(event: StreamEvent) {
 
   if (event.type === 'TicketStatusChange' && event.ticket_status) {
     ticketStatus.value = event.ticket_status
-    if (event.ticket_status === 'done' || event.ticket_status === 'paused' || event.ticket_status === 'failed') {
-      bus.refresh()
-    }
+    bus.refresh()
   }
 }
 
