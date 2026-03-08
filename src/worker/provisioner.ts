@@ -1,9 +1,7 @@
-import Docker from 'dockerode'
 import { config } from '../config'
 import * as db from '../db/queries'
 import type { Project, ContainerStatus } from '../models/types'
-
-const docker = new Docker({ socketPath: '/var/run/docker.sock' })
+import { getDocker } from './docker'
 const LABEL_MANAGED = 'q.managed'
 
 // In-memory map: projectId → container state
@@ -27,7 +25,7 @@ export async function ensureRunning(project: Project): Promise<string> {
   console.log(`[provisioner] Starting container for project ${project.name}`)
   containers.set(project.id, { status: 'starting' })
 
-  const container = await docker.createContainer({
+  const container = await getDocker().createContainer({
     Image: config.projectImage,
     Labels: { [LABEL_MANAGED]: 'true' },
     HostConfig: {
@@ -87,7 +85,7 @@ async function stopProject(projectId: string): Promise<void> {
 
   console.log(`[provisioner] Stopping container for project ${projectId}`)
   try {
-    const container = docker.getContainer(id)
+    const container = getDocker().getContainer(id)
     await container.stop({ t: 5 })
     await container.remove()
   } catch (err) {
@@ -97,13 +95,14 @@ async function stopProject(projectId: string): Promise<void> {
 
 /** Stop all q-managed containers (found by label) and clear in-memory state */
 export async function stopAll(): Promise<void> {
-  const managed = await docker.listContainers({
+  if (config.dryRun) return
+  const managed = await getDocker().listContainers({
     all: true,
     filters: { label: [LABEL_MANAGED] },
   })
   await Promise.allSettled(managed.map(async (info) => {
     try {
-      const container = docker.getContainer(info.Id)
+      const container = getDocker().getContainer(info.Id)
       if (info.State === 'running') await container.stop({ t: 5 })
       await container.remove()
     } catch (err) {

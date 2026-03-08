@@ -1,10 +1,8 @@
-import Docker from 'dockerode'
 import { PassThrough } from 'stream'
 import { config } from '../config'
 import { isQuestion } from './session'
 import type { StreamEvent, EventType } from '../models/types'
-
-const docker = new Docker({ socketPath: '/var/run/docker.sock' })
+import { getDocker } from './docker'
 
 // ─── CLI event types (stream-json output) ─────────────────────────────────────
 
@@ -40,7 +38,7 @@ export async function* callClaude(
     cmd.push('--resume', sessionId)
   }
 
-  const exec = await docker.getContainer(containerId).exec({
+  const exec = await getDocker().getContainer(containerId).exec({
     Cmd: cmd,
     Env: [`ANTHROPIC_API_KEY=${config.anthropicApiKey}`],
     AttachStdin: true,
@@ -57,7 +55,7 @@ export async function* callClaude(
   // Demux dockerode raw stream into separate stdout/stderr
   const stdout = new PassThrough()
   const stderr = new PassThrough()
-  docker.modem.demuxStream(duplex, stdout, stderr)
+  getDocker().modem.demuxStream(duplex, stdout, stderr)
 
   // Collect stderr for error reporting
   const stderrChunks: Buffer[] = []
