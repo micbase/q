@@ -94,9 +94,9 @@ class Scheduler {
       prompt = lastMsg ?? ''
       console.log(`[scheduler] Resuming ticket ${ticket.id} with session ${ticket.session_id}`)
     } else {
-      // First run: build initial prompt and persist to messages
+      // First run: build initial prompt; only persist the description (not the system prompt)
       prompt = buildInitialPrompt(ticket)
-      await db.insertMessage(ticket.id, 'user', prompt, 'text')
+      await db.insertMessage(ticket.id, 'user', ticket.description, 'text')
       console.log(`[scheduler] Starting ticket ${ticket.id} "${ticket.title}"`)
     }
 
