@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import * as db from '../db/queries'
+import { emitMessage, emitTicketStatusChange } from '../broker/emit'
 
 interface TicketParams {
   id: string
@@ -31,9 +32,8 @@ export async function messageRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'content is required' })
     }
 
-    // Insert user message and re-queue
-    await db.insertMessage(req.params.id, 'user', content, 'text')
-    await db.updateTicketStatus(req.params.id, 'queued')
+    await emitMessage(req.params.id, content, 'text', 'user')
+    await emitTicketStatusChange(req.params.id, 'queued')
 
     return reply.status(204).send()
   })

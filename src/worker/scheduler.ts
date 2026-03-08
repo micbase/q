@@ -1,11 +1,10 @@
 import { config } from '../config'
 import * as db from '../db/queries'
-import { broker } from '../broker/broker'
 import { callClaude } from './claude-client'
 import { runDrySession, buildInitialPrompt } from './session'
 import * as provisioner from './provisioner'
 import * as notify from './notify'
-import type { EventType } from '../models/types'
+import { emitMessage, emitTicketStatusChange } from '../broker/emit'
 import ms from 'ms'
 
 function sleep(ms: number): Promise<void> {
@@ -23,20 +22,6 @@ function parseResetDelay(err: unknown): number | null {
   const match = msg.match(/retry.after[:\s]+(\d+)/i)
   if (match) return parseInt(match[1], 10) * 1000
   return null
-}
-
-function roleFromEventType(type: EventType): 'user' | 'assistant' | 'system' {
-  switch (type) {
-    case 'tool_use':
-    case 'tool_result':
-    case 'text':
-    case 'done':
-    case 'paused':
-    case 'error':
-      return 'assistant'
-    default:
-      return 'assistant'
-  }
 }
 
 let currentTicketId: string | null = null
@@ -83,20 +68,17 @@ class Scheduler {
     const ticket = await db.getTicket(ticketId)
     if (!ticket) return
 
-    await db.updateTicketStatus(ticket.id, 'running')
+    await emitTicketStatusChange(ticket.id, 'running')
 
     const isResume = !!ticket.session_id
     let prompt: string
 
     if (isResume) {
-      // On resume, send the last user reply as the prompt
       const lastMsg = await db.getLastUserMessage(ticket.id)
       prompt = lastMsg ?? ''
       console.log(`[scheduler] Resuming ticket ${ticket.id} with session ${ticket.session_id}`)
     } else {
-      // First run: build initial prompt; only persist the description (not the system prompt)
       prompt = buildInitialPrompt(ticket)
-      await db.insertMessage(ticket.id, 'user', ticket.description, 'text')
       console.log(`[scheduler] Starting ticket ${ticket.id} "${ticket.title}"`)
     }
 
@@ -107,46 +89,46 @@ class Scheduler {
             const project = await db.getProject(ticket.project_id)
             if (!project) throw new Error(`Project ${ticket.project_id} not found`)
             const containerId = await provisioner.ensureRunning(project)
-            return callClaude(ticket.id, containerId, prompt, ticket.session_id ?? undefined)
+            return callClaude(containerId, prompt, ticket.session_id ?? undefined)
           })()
 
       for await (const event of eventSource) {
-        // Persist to DB
-        await db.insertMessage(ticket.id, roleFromEventType(event.type), event.content, event.type)
-
-        // Broadcast to SSE clients
-        broker.publish(event)
-
         if (event.type === 'done') {
+          await emitMessage(ticket.id, event.content, 'done', 'assistant')
           console.log(`[scheduler] Ticket ${ticket.id} completed`)
           if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id)
-          await db.updateTicketStatus(ticket.id, 'done')
+          await emitTicketStatusChange(ticket.id, 'done')
           await notify.send(`✅ Done: ${ticket.title}`)
           if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)
           break
         }
 
         if (event.type === 'paused') {
+          await emitMessage(ticket.id, event.content, 'paused', 'assistant')
           console.log(`[scheduler] Ticket ${ticket.id} paused (waiting for input)`)
           if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id)
-          await db.updateTicketStatus(ticket.id, 'paused')
+          await emitTicketStatusChange(ticket.id, 'paused')
           await notify.send(`💬 Input needed: ${ticket.title}`, event.content)
           if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)
           break
         }
 
         if (event.type === 'error') {
+          await emitMessage(ticket.id, event.content, 'error', 'assistant')
           console.error(`[scheduler] Ticket ${ticket.id} errored: ${event.content}`)
           if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id)
-          await db.updateTicketStatusFailed(ticket.id, event.content)
+          await emitTicketStatusChange(ticket.id, 'failed', event.content)
           await notify.send(`❌ Failed: ${ticket.title}`, event.content)
           if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)
           break
         }
+
+        // Normal message events (text, tool_use, tool_result)
+        await emitMessage(ticket.id, event.content, event.type, 'assistant')
       }
     } catch (err) {
       if (isQuotaError(err)) {
-        await db.updateTicketStatus(ticket.id, 'queued')
+        await emitTicketStatusChange(ticket.id, 'queued')
         const delay = parseResetDelay(err) ?? config.retryDelayMs
         await notify.send(`⏳ Quota exceeded`, `Retrying in ${ms(delay)}`)
         console.warn(`Quota error, sleeping ${delay}ms`)
@@ -154,9 +136,8 @@ class Scheduler {
       } else {
         const errMsg = err instanceof Error ? err.message : String(err)
         console.error(`Ticket ${ticket.id} failed:`, err)
-        await db.updateTicketStatusFailed(ticket.id, errMsg)
-        await db.insertMessage(ticket.id, 'system', errMsg, 'error')
-        broker.publish({ type: 'error', content: errMsg, ticket_id: ticket.id })
+        await emitMessage(ticket.id, errMsg, 'error', 'system')
+        await emitTicketStatusChange(ticket.id, 'failed', errMsg)
         await notify.send(`❌ Failed: ${ticket.title}`, errMsg)
         if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)
       }

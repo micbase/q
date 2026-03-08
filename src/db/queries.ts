@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import { getPool } from './connection'
-import type { Project, Ticket, Message, EventType, TicketStatus } from '../models/types'
+import type { Project, Ticket, Message, MessageType, TicketStatus } from '../../shared/types'
 
 function now(): number {
   return Date.now()
@@ -187,15 +187,15 @@ export async function insertMessage(
   ticketId: string,
   role: 'user' | 'assistant' | 'system',
   content: string,
-  eventType: EventType,
+  messageType: MessageType,
 ): Promise<Message> {
   const id = nanoid()
   const ts = now()
   await getPool().query(
     'INSERT INTO messages (id, ticket_id, role, content, event_type, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
-    [id, ticketId, role, content, eventType, ts]
+    [id, ticketId, role, content, messageType, ts]
   )
-  return { id, ticket_id: ticketId, role, content, event_type: eventType, created_at: ts }
+  return { id, ticket_id: ticketId, role, content, event_type: messageType, created_at: ts }
 }
 
 export async function getLastUserMessage(ticketId: string): Promise<string | null> {

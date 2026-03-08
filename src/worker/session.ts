@@ -1,4 +1,4 @@
-import type { Ticket, StreamEvent } from '../models/types'
+import type { Ticket, ClaudeEvent } from '../../shared/types'
 
 // ─── System prompt + initial prompt ──────────────────────────────────────────
 
@@ -40,26 +40,26 @@ function shouldAskQuestion(ticket: Ticket): boolean {
 export async function* runDrySession(
   ticket: Ticket,
   isResume: boolean,
-): AsyncGenerator<StreamEvent> {
+): AsyncGenerator<ClaudeEvent> {
   const delay = (ms: number) => new Promise<void>(res => setTimeout(res, ms))
 
   await delay(800)
-  yield { type: 'text', content: `[DRY RUN] Starting task: ${ticket.title}`, ticket_id: ticket.id }
+  yield { type: 'text', content: `[DRY RUN] Starting task: ${ticket.title}` }
 
   await delay(600)
-  yield { type: 'tool_use', content: '[read_file] Reading project structure...', ticket_id: ticket.id }
+  yield { type: 'tool_use', content: '[read_file] Reading project structure...' }
 
   await delay(400)
-  yield { type: 'tool_result', content: 'src/\n  main.ts\n  config.ts\n', ticket_id: ticket.id }
+  yield { type: 'tool_result', content: 'src/\n  main.ts\n  config.ts\n' }
 
   await delay(700)
-  yield { type: 'text', content: '[DRY RUN] Analyzing codebase...', ticket_id: ticket.id }
+  yield { type: 'text', content: '[DRY RUN] Analyzing codebase...' }
 
   await delay(500)
-  yield { type: 'tool_use', content: '[bash] Running tests...', ticket_id: ticket.id }
+  yield { type: 'tool_use', content: '[bash] Running tests...' }
 
   await delay(1000)
-  yield { type: 'tool_result', content: 'All tests passed.', ticket_id: ticket.id }
+  yield { type: 'tool_result', content: 'All tests passed.' }
 
   await delay(600)
 
@@ -67,14 +67,12 @@ export async function* runDrySession(
     yield {
       type: 'paused',
       content: '[DRY RUN] Should I create a new migration file or modify the existing one?',
-      ticket_id: ticket.id,
     }
   } else {
     yield {
       type: 'text',
       content: `[DRY RUN] Task complete. Branch q/${ticket.id} pushed.`,
-      ticket_id: ticket.id,
     }
-    yield { type: 'done', content: '', ticket_id: ticket.id }
+    yield { type: 'done', content: '' }
   }
 }

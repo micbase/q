@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import * as db from '../db/queries'
+import { emitMessage, emitTicketStatusChange } from '../broker/emit'
 
 interface CreateTicketBody {
   project_id: string
@@ -39,6 +40,11 @@ export async function ticketRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: 'Project not found' })
     }
     const ticket = await db.insertTicket(project_id, title, description, priority)
+
+    // Insert the description as the first message so it shows in chat immediately
+    await emitMessage(ticket.id, description, 'text', 'user')
+    await emitTicketStatusChange(ticket.id, 'queued')
+
     return reply.status(201).send(ticket)
   })
 

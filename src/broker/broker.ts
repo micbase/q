@@ -1,5 +1,5 @@
 import type { ServerResponse } from 'http'
-import type { StreamEvent } from '../models/types'
+import type { StreamEvent } from '../../shared/types'
 
 class SSEBroker {
   private clients = new Map<string, Set<ServerResponse>>()

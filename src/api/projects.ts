@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import * as db from '../db/queries'
-import type { Project } from '../models/types'
+import type { Project } from '../../shared/types'
 import { getContainerStatus } from '../worker/provisioner'
 
 function enrichProject(project: Project) {

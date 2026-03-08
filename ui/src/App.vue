@@ -51,7 +51,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { api, type Status } from './api'
+import { api } from './api'
+import type { Status } from '../../shared/types'
 import ProjectTree from './components/ProjectTree.vue'
 
 const status = ref<Status | null>(null)

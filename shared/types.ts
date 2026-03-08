@@ -2,7 +2,29 @@ export type TicketStatus = 'queued' | 'running' | 'paused' | 'done' | 'failed' |
 export type ProjectStatus = 'active' | 'archived' | 'deleted'
 export type ContainerStatus = 'stopped' | 'starting' | 'running'
 
-export type EventType = 'text' | 'tool_use' | 'tool_result' | 'done' | 'paused' | 'error'
+// Message classification stored in DB
+export type MessageType = 'text' | 'tool_use' | 'tool_result' | 'done' | 'paused' | 'error'
+
+// Internal event yielded by claude-client / dry-run session
+export interface ClaudeEvent {
+  type: MessageType
+  content: string
+  session_id?: string
+}
+
+// SSE event sent to frontend
+export type StreamEventType = 'TicketStatusChange' | 'ContainerStatusChange' | 'NewMessage'
+
+export interface StreamEvent {
+  type: StreamEventType
+  ticket_id: string
+  content?: string
+  message_type?: MessageType
+  role?: 'user' | 'assistant' | 'system'
+  ticket_status?: TicketStatus
+  container_status?: ContainerStatus
+  session_id?: string
+}
 
 export interface Project {
   id: string
@@ -32,16 +54,8 @@ export interface Message {
   ticket_id: string
   role: 'user' | 'assistant' | 'system'
   content: string
-  event_type: EventType
+  event_type: MessageType
   created_at: number
-}
-
-export interface StreamEvent {
-  type: EventType
-  content: string
-  ticket_id: string
-  role?: 'user' | 'assistant' | 'system'
-  session_id?: string
 }
 
 export interface Status {
@@ -49,4 +63,11 @@ export interface Status {
   queue_depth: number
   paused_count: number
   dry_run: boolean
+}
+
+export interface CreateTicketInput {
+  project_id: string
+  title: string
+  description: string
+  priority: number
 }

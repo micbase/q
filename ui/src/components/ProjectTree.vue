@@ -36,7 +36,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { api, type Ticket, type Project } from '../api'
+import { api } from '../api'
+import type { Ticket, Project } from '../../../shared/types'
 import { bus } from '../bus'
 import StatusChip from './StatusChip.vue'
 

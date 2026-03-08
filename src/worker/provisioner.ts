@@ -1,6 +1,6 @@
 import { config } from '../config'
 import * as db from '../db/queries'
-import type { Project, ContainerStatus } from '../models/types'
+import type { Project, ContainerStatus } from '../../shared/types'
 import { getDocker } from './docker'
 const LABEL_MANAGED = 'q.managed'
 

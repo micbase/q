@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import * as db from '../db/queries'
 import { broker } from '../broker/broker'
-import type { StreamEvent } from '../models/types'
+import type { StreamEvent } from '../../shared/types'
 
 interface TicketParams {
   id: string
@@ -23,11 +23,28 @@ export async function streamRoutes(app: FastifyInstance) {
       'X-Accel-Buffering': 'no',
     })
 
-    // Replay existing messages
+    // Replay existing messages as NewMessage events
     const messages = await db.getMessages(id)
     for (const msg of messages) {
-      const event: StreamEvent = { type: msg.event_type, content: msg.content, ticket_id: id, role: msg.role }
+      const event: StreamEvent = {
+        type: 'NewMessage',
+        ticket_id: id,
+        content: msg.content,
+        message_type: msg.event_type,
+        role: msg.role,
+      }
       res.write(`data: ${JSON.stringify(event)}\n\n`)
+    }
+
+    // Send current ticket status
+    const currentTicket = await db.getTicket(id)
+    if (currentTicket) {
+      const statusEvent: StreamEvent = {
+        type: 'TicketStatusChange',
+        ticket_id: id,
+        ticket_status: currentTicket.status,
+      }
+      res.write(`data: ${JSON.stringify(statusEvent)}\n\n`)
     }
 
     // Subscribe to live events

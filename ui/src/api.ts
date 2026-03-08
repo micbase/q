@@ -1,56 +1,6 @@
+import type { Project, Ticket, Message, StreamEvent, CreateTicketInput, Status } from '../../shared/types'
+
 const BASE = '/api'
-
-export interface Project {
-  id: string
-  name: string
-  status: 'stopped' | 'starting' | 'running'
-  created_at: number
-  updated_at: number
-}
-
-export interface Ticket {
-  id: string
-  project_id: string
-  title: string
-  description: string
-  priority: number
-  status: 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'deleted'
-  error?: string
-  created_at: number
-  updated_at: number
-  started_at?: number
-  completed_at?: number
-}
-
-export interface Message {
-  id: string
-  ticket_id: string
-  role: 'user' | 'assistant' | 'system'
-  content: string
-  event_type: string
-  created_at: number
-}
-
-export interface StreamEvent {
-  type: 'text' | 'tool_use' | 'tool_result' | 'done' | 'paused' | 'error'
-  content: string
-  ticket_id: string
-  role?: 'user' | 'assistant' | 'system'
-}
-
-export interface CreateTicketInput {
-  project_id: string
-  title: string
-  description: string
-  priority: number
-}
-
-export interface Status {
-  running_ticket: string | null
-  queue_depth: number
-  paused_count: number
-  dry_run: boolean
-}
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(BASE + url, init)

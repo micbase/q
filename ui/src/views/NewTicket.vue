@@ -107,8 +107,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { api, type Project } from '../api'
-import { bus } from '../bus'
+import { api } from '../api'
+import type { Project } from '../../../shared/types'
 
 const router = useRouter()
 
@@ -159,7 +159,6 @@ async function submit() {
   error.value = ''
   try {
     const ticket = await api.createTicket(form.value)
-    bus.refresh()
     router.push(`/tickets/${ticket.id}`)
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to create ticket'

@@ -1,7 +1,7 @@
 import { PassThrough } from 'stream'
 import { config } from '../config'
 import { isQuestion } from './session'
-import type { StreamEvent, EventType } from '../models/types'
+import type { ClaudeEvent, MessageType } from '../../shared/types'
 import { getDocker } from './docker'
 
 // ─── CLI event types (stream-json output) ─────────────────────────────────────
@@ -28,11 +28,10 @@ type CLIEvent = CLIAssistantEvent | CLIResultEvent | { type: string }
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export async function* callClaude(
-  ticketId: string,
   containerId: string,
   prompt: string,
   sessionId?: string,
-): AsyncGenerator<StreamEvent> {
+): AsyncGenerator<ClaudeEvent> {
   const cmd = ['claude', '-p', '--output-format', 'stream-json', '--dangerously-skip-permissions']
   if (sessionId) {
     cmd.push('--resume', sessionId)
@@ -80,7 +79,7 @@ export async function* callClaude(
           continue
         }
 
-        yield* mapCLIEvent(event, ticketId)
+        yield* mapCLIEvent(event)
       }
     }
 
@@ -88,7 +87,7 @@ export async function* callClaude(
     if (buffer.trim()) {
       try {
         const event: CLIEvent = JSON.parse(buffer.trim())
-        yield* mapCLIEvent(event, ticketId)
+        yield* mapCLIEvent(event)
       } catch {
         // ignore
       }
@@ -108,23 +107,23 @@ export async function* callClaude(
 
 // ─── Event mapping ────────────────────────────────────────────────────────────
 
-function* mapCLIEvent(event: CLIEvent, ticketId: string): Generator<StreamEvent> {
+function* mapCLIEvent(event: CLIEvent): Generator<ClaudeEvent> {
   if (event.type === 'assistant') {
     const e = event as CLIAssistantEvent
     for (const block of e.message.content) {
       if (block.type === 'text' && block.text) {
-        yield { type: 'text', content: block.text, ticket_id: ticketId }
+        yield { type: 'text', content: block.text }
       } else if (block.type === 'tool_use') {
-        yield { type: 'tool_use', content: `[${block.name}]`, ticket_id: ticketId }
+        yield { type: 'tool_use', content: `[${block.name}]` }
       }
     }
   } else if (event.type === 'result') {
     const e = event as CLIResultEvent
     if (e.subtype === 'success') {
-      const type: EventType = isQuestion(e.result) ? 'paused' : 'done'
-      yield { type, content: e.result, ticket_id: ticketId, session_id: e.session_id }
+      const type: MessageType = isQuestion(e.result) ? 'paused' : 'done'
+      yield { type, content: e.result, session_id: e.session_id }
     } else {
-      yield { type: 'error', content: `Session ended: ${e.subtype}`, ticket_id: ticketId, session_id: e.session_id }
+      yield { type: 'error', content: `Session ended: ${e.subtype}`, session_id: e.session_id }
     }
   }
   // 'system' and other event types are informational only — skip

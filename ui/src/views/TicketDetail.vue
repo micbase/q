@@ -4,7 +4,7 @@
     <div class="px-5 pt-4 pb-3 border-b border-gray-100 shrink-0">
       <div class="flex items-center gap-2 mb-0.5">
         <h1 class="font-semibold text-lg flex-1 truncate">{{ ticket?.title }}</h1>
-        <StatusChip v-if="ticket" :status="ticket.status" />
+        <StatusChip v-if="ticket" :status="ticketStatus" />
       </div>
       <div v-if="ticket" class="text-sm text-gray-400 flex items-center gap-2">
         <span>{{ project?.name ?? '' }}</span>
@@ -21,27 +21,27 @@
       class="flex-1 overflow-y-auto flex flex-col gap-3 px-5 py-4"
     >
       <div v-if="error" class="text-red-600 text-base text-center py-8">{{ error }}</div>
-      <div v-else-if="messages.length === 0 && !loading" class="text-gray-400 text-base text-center py-8">
+      <div v-else-if="messages.length === 0" class="text-gray-400 text-base text-center py-8">
         No messages yet
       </div>
 
       <template v-for="(msg, i) in messages" :key="i">
         <!-- User message -->
-        <div v-if="msg.type === 'text' && isUserMsg(msg)" class="flex justify-end">
+        <div v-if="msg.message_type === 'text' && msg.role === 'user'" class="flex justify-end">
           <div class="bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-2 max-w-xs text-base whitespace-pre-wrap">
             {{ msg.content }}
           </div>
         </div>
 
         <!-- Assistant text -->
-        <div v-else-if="msg.type === 'text'" class="flex justify-start">
+        <div v-else-if="msg.message_type === 'text'" class="flex justify-start">
           <div class="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-2 max-w-sm text-base whitespace-pre-wrap">
             {{ msg.content }}
           </div>
         </div>
 
         <!-- Tool use/result chips -->
-        <div v-else-if="msg.type === 'tool_use' || msg.type === 'tool_result'" class="flex justify-start">
+        <div v-else-if="msg.message_type === 'tool_use' || msg.message_type === 'tool_result'" class="flex justify-start">
           <div
             class="bg-gray-100 rounded-lg text-sm text-gray-600 overflow-hidden"
           >
@@ -59,35 +59,25 @@
         </div>
 
         <!-- Paused message -->
-        <div v-else-if="msg.type === 'paused'" class="flex justify-start">
+        <div v-else-if="msg.message_type === 'paused'" class="flex justify-start">
           <div class="bg-orange-50 border border-orange-200 rounded-2xl rounded-tl-sm px-4 py-2 max-w-sm text-base whitespace-pre-wrap text-orange-800">
             {{ msg.content }}
           </div>
         </div>
 
         <!-- Done -->
-        <div v-else-if="msg.type === 'done'" class="text-center">
-          <span class="text-sm text-gray-400 bg-gray-100 px-3 py-1 rounded-full">✅ Task complete</span>
+        <div v-else-if="msg.message_type === 'done'" class="text-center">
+          <span class="text-sm text-gray-400 bg-gray-100 px-3 py-1 rounded-full">Task complete</span>
         </div>
 
         <!-- Error -->
-        <div v-else-if="msg.type === 'error'" class="flex justify-start">
+        <div v-else-if="msg.message_type === 'error'" class="flex justify-start">
           <div class="bg-red-50 border border-red-200 rounded-lg px-4 py-2 max-w-sm text-base text-red-700 whitespace-pre-wrap">
-            ❌ {{ msg.content }}
+            {{ msg.content }}
           </div>
         </div>
       </template>
 
-      <!-- Typing indicator -->
-      <div v-if="ticket?.status === 'running'" class="flex justify-start">
-        <div class="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3">
-          <div class="flex gap-1">
-            <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0ms"></span>
-            <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 150ms"></span>
-            <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 300ms"></span>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Reply error -->
@@ -96,11 +86,11 @@
     </div>
 
     <!-- Reply box (when paused or done) -->
-    <div v-if="ticket?.status === 'paused' || ticket?.status === 'done'" class="border-t border-gray-200 px-5 py-3 flex gap-2 shrink-0">
+    <div v-if="canReply" class="border-t border-gray-200 px-5 py-3 flex gap-2 shrink-0">
       <input
         v-model="reply"
         type="text"
-        :placeholder="ticket?.status === 'done' ? 'Follow up...' : 'Type your reply...'"
+        :placeholder="ticketStatus === 'done' ? 'Follow up...' : 'Type your reply...'"
         @keydown.enter="sendReply"
         class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
@@ -116,14 +106,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { api, type Ticket, type Project, type StreamEvent } from '../api'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { api } from '../api'
+import type { Ticket, Project, StreamEvent, MessageType } from '../../../shared/types'
 import { bus } from '../bus'
 import StatusChip from '../components/StatusChip.vue'
 import PriorityPips from '../components/PriorityPips.vue'
 
 interface DisplayMsg {
-  type: StreamEvent['type']
+  message_type: MessageType
   content: string
   role?: string
 }
@@ -133,7 +124,7 @@ const props = defineProps<{ id: string }>()
 const ticket = ref<Ticket | null>(null)
 const project = ref<Project | null>(null)
 const messages = ref<DisplayMsg[]>([])
-const loading = ref(true)
+const ticketStatus = ref<Ticket['status']>('queued')
 const error = ref('')
 const reply = ref('')
 const sending = ref(false)
@@ -141,8 +132,8 @@ const replyError = ref('')
 const scrollEl = ref<HTMLElement | null>(null)
 const expanded = ref<Set<number>>(new Set())
 let es: EventSource | null = null
-let pollHandle: ReturnType<typeof setInterval> | null = null
-let loadGeneration = 0 // guard against stale async results
+
+const canReply = computed(() => ticketStatus.value === 'paused' || ticketStatus.value === 'done')
 
 function relativeTime(ms: number): string {
   const diff = Math.max(0, Date.now() - ms)
@@ -153,10 +144,6 @@ function relativeTime(ms: number): string {
   const hrs = Math.floor(mins / 60)
   if (hrs < 24) return `${hrs}h`
   return `${Math.floor(hrs / 24)}d`
-}
-
-function isUserMsg(msg: DisplayMsg): boolean {
-  return msg.role === 'user'
 }
 
 function toggleExpanded(i: number) {
@@ -179,146 +166,71 @@ async function sendReply() {
   if (!reply.value.trim() || sending.value) return
   sending.value = true
   replyError.value = ''
-  const content = reply.value.trim()
   try {
-    // Show user message optimistically and keep it visible
-    messages.value.push({ type: 'text', content, role: 'user' })
+    await api.reply(props.id, reply.value.trim())
     reply.value = ''
-    scrollToBottom()
-
-    await api.reply(props.id, content)
-    if (ticket.value) ticket.value.status = 'queued'
-    bus.refresh()
-
-    // Start polling — poll will reopen stream when ticket moves to running
-    startPoll(props.id)
   } catch (err) {
-    // Remove optimistic message on failure
-    const idx = messages.value.findLastIndex(m => m.role === 'user' && m.content === content)
-    if (idx !== -1) messages.value.splice(idx, 1)
     replyError.value = err instanceof Error ? err.message : 'Failed to send reply'
   } finally {
     sending.value = false
   }
 }
 
-function stopPoll() {
-  if (pollHandle) { clearInterval(pollHandle); pollHandle = null }
-}
-
-function startPoll(id: string) {
-  stopPoll()
-  pollHandle = setInterval(async () => {
-    const fresh = await api.getTicket(id).catch(() => null)
-    if (!fresh || !ticket.value) return
-    const prev = ticket.value.status
-    ticket.value = fresh
-    if (prev !== fresh.status) {
-      bus.refresh()
-      if (fresh.status === 'running') {
-        // Fetch messages from DB (atomic, no flash), then open stream for live events
-        await refreshMessages(id)
-        es?.close()
-        openStream()
-      } else if (fresh.status === 'done' || fresh.status === 'paused' || fresh.status === 'failed') {
-        await refreshMessages(id)
-        es?.close()
-        stopPoll()
-      }
-    }
-  }, 3000)
-}
-
-/** Fetch messages from REST and swap in atomically — no flash */
-async function refreshMessages(id: string) {
-  const dbMsgs = await api.getMessages(id).catch(() => null)
-  if (!dbMsgs) return
-  messages.value = dbMsgs.map(m => ({
-    type: m.event_type as StreamEvent['type'],
-    content: m.content,
-    role: m.role,
-  }))
-  scrollToBottom()
-}
-
-function openStream() {
-  // Track how many messages we already have so we can skip the replay portion
-  const skipCount = messages.value.length
-  let received = 0
-  const gen = loadGeneration
-
-  es = api.streamEvents(props.id, (event) => {
-    // Discard events from a stale generation
-    if (gen !== loadGeneration) { es?.close(); return }
-
-    received++
-    // Skip replayed messages we already have from refreshMessages/load
-    if (received <= skipCount) return
-
-    if (event.type === 'done') {
-      messages.value.push({ type: 'done', content: '' })
-      if (ticket.value) ticket.value.status = 'done'
-      bus.refresh()
-      es?.close()
-      stopPoll()
-    } else if (event.type === 'paused') {
-      messages.value.push({ type: 'paused', content: event.content })
-      if (ticket.value) ticket.value.status = 'paused'
-      bus.refresh()
-      es?.close()
-      stopPoll()
-    } else if (event.type === 'error') {
-      messages.value.push({ type: event.type, content: event.content, role: event.role })
-      if (ticket.value) ticket.value.status = 'failed'
-      bus.refresh()
-      es?.close()
-      stopPoll()
-    } else {
-      messages.value.push({ type: event.type, content: event.content, role: event.role })
-    }
+function handleEvent(event: StreamEvent) {
+  if (event.type === 'NewMessage') {
+    messages.value.push({
+      message_type: event.message_type!,
+      content: event.content ?? '',
+      role: event.role,
+    })
     scrollToBottom()
-  }, () => {
-    // On EventSource error/reconnect, close and let poll reopen with fresh skip count
-    es?.close()
+  }
+
+  if (event.type === 'TicketStatusChange' && event.ticket_status) {
+    ticketStatus.value = event.ticket_status
+    if (event.ticket_status === 'done' || event.ticket_status === 'paused' || event.ticket_status === 'failed') {
+      bus.refresh()
+    }
+  }
+}
+
+function openStream(id: string) {
+  es?.close()
+
+  es = api.streamEvents(id, handleEvent, () => {
+    // EventSource will auto-reconnect; on reconnect, server replays all messages
   })
+
+  // On reconnect, clear messages so replay rebuilds them without duplicates
+  es.onopen = () => {
+    messages.value = []
+    expanded.value = new Set()
+  }
 }
 
 async function load(id: string) {
   es?.close()
-  stopPoll()
-  const gen = ++loadGeneration
   ticket.value = null
   project.value = null
   messages.value = []
-  loading.value = true
+  ticketStatus.value = 'queued'
   error.value = ''
 
   try {
     ticket.value = await api.getTicket(id)
     if (ticket.value) {
+      ticketStatus.value = ticket.value.status
       project.value = await api.getProject(ticket.value.project_id).catch(() => null)
     }
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load ticket'
     return
-  } finally {
-    loading.value = false
   }
 
-  // Guard: if another load() was called while we awaited, abort
-  if (gen !== loadGeneration) return
-
-  await refreshMessages(id)
-  if (gen !== loadGeneration) return
-
-  // Only open stream for active tickets
-  if (ticket.value && (ticket.value.status === 'queued' || ticket.value.status === 'running')) {
-    openStream()
-    startPoll(id)
-  }
+  openStream(id)
 }
 
 onMounted(() => load(props.id))
 watch(() => props.id, load)
-onUnmounted(() => { es?.close(); stopPoll() })
+onUnmounted(() => es?.close())
 </script>
