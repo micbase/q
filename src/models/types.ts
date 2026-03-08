@@ -20,6 +20,7 @@ export interface Ticket {
   priority: number        // 1-5
   status: TicketStatus
   error?: string
+  session_id?: string
   created_at: number      // unix ms
   updated_at: number
   started_at?: number
@@ -35,16 +36,12 @@ export interface Message {
   created_at: number
 }
 
-export interface ConversationMsg {
-  role: 'user' | 'assistant'
-  content: string
-}
-
 export interface StreamEvent {
   type: EventType
   content: string
   ticket_id: string
   role?: 'user' | 'assistant' | 'system'
+  session_id?: string
 }
 
 export interface Status {

@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   -- 1=Critical 2=High 3=Normal 4=Low 5=Whenever
   status       ENUM('queued','running','paused','done','failed','deleted') NOT NULL DEFAULT 'queued',
   error        TEXT,
+  session_id   VARCHAR(255) DEFAULT NULL,
   created_at   BIGINT       NOT NULL,  -- unix ms
   updated_at   BIGINT       NOT NULL,
   started_at   BIGINT,

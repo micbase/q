@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import { getPool } from './connection'
-import type { Project, Ticket, Message, ConversationMsg, EventType, TicketStatus } from '../models/types'
+import type { Project, Ticket, Message, EventType, TicketStatus } from '../models/types'
 
 function now(): number {
   return Date.now()
@@ -130,6 +130,13 @@ export async function updateTicketStatus(id: string, status: TicketStatus): Prom
   )
 }
 
+export async function updateTicketSessionId(id: string, sessionId: string): Promise<void> {
+  await getPool().execute(
+    'UPDATE tickets SET session_id = ?, updated_at = ? WHERE id = ?',
+    [sessionId, now(), id]
+  )
+}
+
 export async function updateTicketStatusFailed(id: string, error: string): Promise<void> {
   const ts = now()
   await getPool().execute(
@@ -193,36 +200,13 @@ export async function insertMessage(
   return { id, ticket_id: ticketId, role, content, event_type: eventType, created_at: ts }
 }
 
-// ─── Conversation (derived from messages) ────────────────────────────────────
-
-export async function getConversation(ticketId: string): Promise<ConversationMsg[]> {
-  const rows = await getMessages(ticketId)
-  const conversation: ConversationMsg[] = []
-  let assistantBuffer: string[] = []
-
-  function flushAssistant() {
-    if (assistantBuffer.length) {
-      conversation.push({ role: 'assistant', content: assistantBuffer.join('\n') })
-      assistantBuffer = []
-    }
-  }
-
-  for (const msg of rows) {
-    if (msg.role === 'user') {
-      flushAssistant()
-      conversation.push({ role: 'user', content: msg.content })
-    } else if (msg.role === 'assistant') {
-      if (msg.event_type === 'text') {
-        assistantBuffer.push(msg.content)
-      } else if (msg.event_type === 'paused' || msg.event_type === 'done') {
-        flushAssistant()
-      }
-      // skip tool_use, tool_result, error
-    }
-  }
-
-  flushAssistant()
-  return conversation
+export async function getLastUserMessage(ticketId: string): Promise<string | null> {
+  const [rows] = await getPool().execute(
+    'SELECT content FROM messages WHERE ticket_id = ? AND role = "user" ORDER BY created_at DESC LIMIT 1',
+    [ticketId]
+  )
+  const arr = rows as { content: string }[]
+  return arr.length ? arr[0].content : null
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -246,5 +230,6 @@ function mapTicket(row: Ticket): Ticket {
     started_at: row.started_at ? Number(row.started_at) : undefined,
     completed_at: row.completed_at ? Number(row.completed_at) : undefined,
     error: row.error ?? undefined,
+    session_id: row.session_id ?? undefined,
   }
 }

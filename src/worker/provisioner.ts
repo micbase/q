@@ -31,7 +31,10 @@ export async function ensureRunning(project: Project): Promise<string> {
     Image: config.projectImage,
     Labels: { [LABEL_MANAGED]: 'true' },
     HostConfig: {
-      Binds: [`${config.projectsDir}/${project.name}:/workspace`],
+      Binds: [
+        `${config.projectsDir}/${project.name}:/workspace`,
+        `${config.projectsDir}/.claude-sessions/${project.name}:/root/.claude`,
+      ],
     },
   })
 

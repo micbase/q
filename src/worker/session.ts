@@ -1,8 +1,8 @@
-import type { Ticket, ConversationMsg, StreamEvent } from '../models/types'
+import type { Ticket, StreamEvent } from '../models/types'
 
-// ─── System prompt + initial messages ─────────────────────────────────────────
+// ─── System prompt + initial prompt ──────────────────────────────────────────
 
-export function buildInitialMessages(ticket: Ticket): ConversationMsg[] {
+export function buildInitialPrompt(ticket: Ticket): string {
   const system = `You are an autonomous software development agent working inside a Docker container.
 You have full permission to read and modify files in the working directory.
 Run in fully autonomous mode — do not ask for permission before taking actions.
@@ -15,7 +15,7 @@ For this task:
 - Do not ask multiple questions at once
 - Do not ask for permission — just act`
 
-  return [{ role: 'user', content: `${system}\n\n${ticket.description}` }]
+  return `${system}\n\n${ticket.description}`
 }
 
 // ─── Question heuristic ───────────────────────────────────────────────────────
@@ -39,9 +39,8 @@ function shouldAskQuestion(ticket: Ticket): boolean {
 
 export async function* runDrySession(
   ticket: Ticket,
-  messages: ConversationMsg[],
+  isResume: boolean,
 ): AsyncGenerator<StreamEvent> {
-  const isResume = messages.length > 1
   const delay = (ms: number) => new Promise<void>(res => setTimeout(res, ms))
 
   await delay(800)

@@ -2,10 +2,10 @@ import { config } from '../config'
 import * as db from '../db/queries'
 import { broker } from '../broker/broker'
 import { callClaude } from './claude-client'
-import { runDrySession, buildInitialMessages } from './session'
+import { runDrySession, buildInitialPrompt } from './session'
 import * as provisioner from './provisioner'
 import * as notify from './notify'
-import type { ConversationMsg, EventType } from '../models/types'
+import type { EventType } from '../models/types'
 import ms from 'ms'
 
 function sleep(ms: number): Promise<void> {
@@ -84,28 +84,30 @@ class Scheduler {
     if (!ticket) return
 
     await db.updateTicketStatus(ticket.id, 'running')
-    console.log(`[scheduler] Processing ticket ${ticket.id} "${ticket.title}"`)
 
-    // Load conversation from messages table, or build initial prompt on first run
-    const saved = await db.getConversation(ticket.id)
-    const isResume = saved.length > 0
-    const messages: ConversationMsg[] = isResume ? saved : buildInitialMessages(ticket)
-    console.log(`[scheduler] ${isResume ? 'Resuming' : 'Starting'} ticket ${ticket.id} (${messages.length} messages)`)
+    const isResume = !!ticket.session_id
+    let prompt: string
 
-    // On first run, persist the initial user prompt to messages table
-    if (!isResume) {
-      await db.insertMessage(ticket.id, 'user', messages[0].content, 'text')
+    if (isResume) {
+      // On resume, send the last user reply as the prompt
+      const lastMsg = await db.getLastUserMessage(ticket.id)
+      prompt = lastMsg ?? ''
+      console.log(`[scheduler] Resuming ticket ${ticket.id} with session ${ticket.session_id}`)
+    } else {
+      // First run: build initial prompt and persist to messages
+      prompt = buildInitialPrompt(ticket)
+      await db.insertMessage(ticket.id, 'user', prompt, 'text')
+      console.log(`[scheduler] Starting ticket ${ticket.id} "${ticket.title}"`)
     }
 
     try {
-      // Resolve session source: dry run uses mock generator, real uses docker exec
       const eventSource = config.dryRun
-        ? runDrySession(ticket, messages)
+        ? runDrySession(ticket, isResume)
         : await (async () => {
             const project = await db.getProject(ticket.project_id)
             if (!project) throw new Error(`Project ${ticket.project_id} not found`)
             const containerId = await provisioner.ensureRunning(project)
-            return callClaude(ticket.id, containerId, messages)
+            return callClaude(ticket.id, containerId, prompt, ticket.session_id ?? undefined)
           })()
 
       for await (const event of eventSource) {
@@ -117,6 +119,7 @@ class Scheduler {
 
         if (event.type === 'done') {
           console.log(`[scheduler] Ticket ${ticket.id} completed`)
+          if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id)
           await db.updateTicketStatus(ticket.id, 'done')
           await notify.send(`✅ Done: ${ticket.title}`)
           if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)
@@ -125,6 +128,7 @@ class Scheduler {
 
         if (event.type === 'paused') {
           console.log(`[scheduler] Ticket ${ticket.id} paused (waiting for input)`)
+          if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id)
           await db.updateTicketStatus(ticket.id, 'paused')
           await notify.send(`💬 Input needed: ${ticket.title}`, event.content)
           if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)
@@ -133,6 +137,7 @@ class Scheduler {
 
         if (event.type === 'error') {
           console.error(`[scheduler] Ticket ${ticket.id} errored: ${event.content}`)
+          if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id)
           await db.updateTicketStatusFailed(ticket.id, event.content)
           await notify.send(`❌ Failed: ${ticket.title}`, event.content)
           if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)

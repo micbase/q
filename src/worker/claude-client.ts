@@ -2,18 +2,9 @@ import Docker from 'dockerode'
 import { PassThrough } from 'stream'
 import { config } from '../config'
 import { isQuestion } from './session'
-import type { ConversationMsg, StreamEvent, EventType } from '../models/types'
+import type { StreamEvent, EventType } from '../models/types'
 
 const docker = new Docker({ socketPath: '/var/run/docker.sock' })
-
-// ─── Prompt builder ───────────────────────────────────────────────────────────
-
-function buildPrompt(messages: ConversationMsg[]): string {
-  if (messages.length === 1) return messages[0].content
-  return messages
-    .map(m => `${m.role.toUpperCase()}: ${m.content}`)
-    .join('\n\n')
-}
 
 // ─── CLI event types (stream-json output) ─────────────────────────────────────
 
@@ -31,6 +22,7 @@ interface CLIResultEvent {
   type: 'result'
   subtype: 'success' | 'error_max_turns' | string
   result: string
+  session_id?: string
 }
 
 type CLIEvent = CLIAssistantEvent | CLIResultEvent | { type: string }
@@ -40,12 +32,16 @@ type CLIEvent = CLIAssistantEvent | CLIResultEvent | { type: string }
 export async function* callClaude(
   ticketId: string,
   containerId: string,
-  messages: ConversationMsg[],
+  prompt: string,
+  sessionId?: string,
 ): AsyncGenerator<StreamEvent> {
-  const prompt = buildPrompt(messages)
+  const cmd = ['claude', '-p', '--output-format', 'stream-json', '--dangerously-skip-permissions']
+  if (sessionId) {
+    cmd.push('--resume', sessionId)
+  }
 
   const exec = await docker.getContainer(containerId).exec({
-    Cmd: ['claude', '-p', '--output-format', 'stream-json', '--dangerously-skip-permissions'],
+    Cmd: cmd,
     Env: [`ANTHROPIC_API_KEY=${config.anthropicApiKey}`],
     AttachStdin: true,
     AttachStdout: true,
@@ -128,9 +124,9 @@ function* mapCLIEvent(event: CLIEvent, ticketId: string): Generator<StreamEvent>
     const e = event as CLIResultEvent
     if (e.subtype === 'success') {
       const type: EventType = isQuestion(e.result) ? 'paused' : 'done'
-      yield { type, content: e.result, ticket_id: ticketId }
+      yield { type, content: e.result, ticket_id: ticketId, session_id: e.session_id }
     } else {
-      yield { type: 'error', content: `Session ended: ${e.subtype}`, ticket_id: ticketId }
+      yield { type: 'error', content: `Session ended: ${e.subtype}`, ticket_id: ticketId, session_id: e.session_id }
     }
   }
   // 'system' and other event types are informational only — skip
