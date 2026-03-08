@@ -7,7 +7,7 @@ Async task queue for Claude Code. A worker daemon drains the queue when Claude q
 Four logical pieces running in one Node.js process (q):
 
 - **Fastify** — REST API, SSE streaming, serves built Vue UI as static files
-- **Scheduler** — polls MySQL every `POLL_INTERVAL_MS`, runs one ticket at a time
+- **Scheduler** — polls PostgreSQL every `POLL_INTERVAL_MS`, runs one ticket at a time
 - **Provisioner** — creates/stops Docker project containers on demand via dockerode
 - **SSE Broker** — in-memory fan-out from worker to open browser connections
 
@@ -17,7 +17,7 @@ Each project gets an ephemeral **project container** — a `node:24-slim` image 
 
 - **Runtime**: Node.js 24 LTS, TypeScript (compiled to CommonJS)
 - **Claude**: `claude` CLI — invoked inside project containers via `docker exec`
-- **Database**: MySQL 8 (external, configured via env vars)
+- **Database**: PostgreSQL (external, configured via env vars)
 - **HTTP**: Fastify 4 + `@fastify/static`
 - **Docker**: `dockerode` — q manages project containers via Docker socket
 - **Frontend**: Vue 3 + Vite + Tailwind CSS
@@ -30,7 +30,7 @@ src/
   main.ts                # Entrypoint
   config.ts              # Env var loading + validation + scrubEnv()
   db/
-    connection.ts        # MySQL pool
+    connection.ts        # PostgreSQL pool
     queries.ts           # All DB operations
   models/types.ts        # Shared TypeScript types
   broker/broker.ts       # SSE fan-out
@@ -79,7 +79,7 @@ PROJECTS_DIR=                   # base directory for project working directories
 Optional:
 
 ```bash
-DB_PORT=3306
+DB_PORT=5432
 ANTHROPIC_API_KEY=              # required if DRY_RUN=false; passed per-exec to containers
 NTFY_URL=                       # ntfy push notification endpoint
 API_PORT=3200
@@ -105,10 +105,10 @@ cd ui && npm run build # build to ui/dist/ (served by Fastify in prod)
 
 ## Database
 
-Run `schema.sql` once to create tables:
+Run `sql/1.sql` once to create tables:
 
 ```bash
-mysql -u root -p < schema.sql
+psql -U postgres -f sql/1.sql
 ```
 
 Tables: `projects`, `tickets`, `messages`
@@ -162,7 +162,7 @@ Set `DRY_RUN=true` to test the full pipeline without Docker or Claude.
 - **One ticket at a time** — quota is shared; parallelism hits the wall faster
 - **SSE over WebSocket** — simpler, auto-reconnects on mobile, no upgrade handshake
 - **Git branch per ticket** — Claude works in `q/{ticket_id}`, pushes on done
-- **MySQL external** — no compose file; `DB_HOST` etc. point at wherever MySQL runs
+- **PostgreSQL external** — no compose file; `DB_HOST` etc. point at wherever PostgreSQL runs
 - **q invokes claude CLI via docker exec** — no SDK dependency in q; CLI runs inside project containers
 - **Containers are stateless** — full conversation history flattened and piped each run; no ~/.claude/ persistence needed
 - **Project containers ephemeral** — no volumes beyond `/workspace` mount; idle timeout auto-removes them

@@ -1,28 +1,23 @@
-import mysql from 'mysql2/promise'
+import { Pool } from 'pg'
 import { config } from '../config'
 
-let pool: mysql.Pool | null = null
+let pool: Pool | null = null
 
-export function getPool(): mysql.Pool {
+export function getPool(): Pool {
   if (!pool) {
-    pool = mysql.createPool({
+    pool = new Pool({
       host: config.db.host,
       port: config.db.port,
       database: config.db.database,
       user: config.db.user,
       password: config.db.password,
-      waitForConnections: true,
-      connectionLimit: 10,
-      queueLimit: 0,
-      timezone: '+00:00',
+      max: 10,
     })
   }
   return pool
 }
 
 export async function testConnection(): Promise<void> {
-  const conn = await getPool().getConnection()
-  await conn.ping()
-  conn.release()
+  await getPool().query('SELECT 1')
   console.log('Database connection OK')
 }

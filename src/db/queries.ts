@@ -9,83 +9,80 @@ function now(): number {
 // ─── Projects ─────────────────────────────────────────────────────────────────
 
 export async function listProjects(): Promise<Project[]> {
-  const [rows] = await getPool().execute(
-    'SELECT * FROM projects WHERE status = "active" ORDER BY name ASC'
+  const { rows } = await getPool().query(
+    "SELECT * FROM projects WHERE status = 'active' ORDER BY name ASC"
   )
-  return (rows as Project[]).map(mapProject)
+  return rows.map(mapProject)
 }
 
 export async function getProject(id: string): Promise<Project | null> {
-  const [rows] = await getPool().execute(
-    'SELECT * FROM projects WHERE id = ? AND status = "active"', [id]
+  const { rows } = await getPool().query(
+    "SELECT * FROM projects WHERE id = $1 AND status = 'active'", [id]
   )
-  const arr = rows as Project[]
-  return arr.length ? mapProject(arr[0]) : null
+  return rows.length ? mapProject(rows[0]) : null
 }
 
 export async function getProjectByName(name: string): Promise<Project | null> {
-  const [rows] = await getPool().execute(
-    'SELECT * FROM projects WHERE name = ? AND status = "active"', [name]
+  const { rows } = await getPool().query(
+    "SELECT * FROM projects WHERE name = $1 AND status = 'active'", [name]
   )
-  const arr = rows as Project[]
-  return arr.length ? mapProject(arr[0]) : null
+  return rows.length ? mapProject(rows[0]) : null
 }
 
 export async function insertProject(name: string): Promise<Project> {
   const id = nanoid()
   const ts = now()
-  await getPool().execute(
-    'INSERT INTO projects (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)',
+  await getPool().query(
+    'INSERT INTO projects (id, name, created_at, updated_at) VALUES ($1, $2, $3, $4)',
     [id, name, ts, ts]
   )
   return (await getProject(id))!
 }
 
 export async function countActiveTicketsForProject(projectId: string): Promise<number> {
-  const [rows] = await getPool().execute(
-    'SELECT COUNT(*) as cnt FROM tickets WHERE project_id = ? AND status IN ("queued","running","paused")',
+  const { rows } = await getPool().query(
+    "SELECT COUNT(*) as cnt FROM tickets WHERE project_id = $1 AND status IN ('queued','running','paused')",
     [projectId]
   )
-  return Number((rows as { cnt: number }[])[0].cnt)
+  return Number(rows[0].cnt)
 }
 
 export async function archiveProject(id: string): Promise<void> {
   const active = await countActiveTicketsForProject(id)
   if (active > 0) throw new Error('Cannot archive project with active tickets')
   const ts = now()
-  await getPool().execute('UPDATE projects SET status = "archived", updated_at = ? WHERE id = ?', [ts, id])
+  await getPool().query("UPDATE projects SET status = 'archived', updated_at = $1 WHERE id = $2", [ts, id])
 }
 
 export async function deleteProject(id: string): Promise<void> {
   const active = await countActiveTicketsForProject(id)
   if (active > 0) throw new Error('Cannot delete project with active tickets')
   const ts = now()
-  await getPool().execute('UPDATE projects SET status = "deleted", updated_at = ? WHERE id = ?', [ts, id])
+  await getPool().query("UPDATE projects SET status = 'deleted', updated_at = $1 WHERE id = $2", [ts, id])
 }
 
 export async function countQueuedTicketsForProject(projectId: string): Promise<number> {
-  const [rows] = await getPool().execute(
-    'SELECT COUNT(*) as cnt FROM tickets WHERE project_id = ? AND status = "queued"',
+  const { rows } = await getPool().query(
+    "SELECT COUNT(*) as cnt FROM tickets WHERE project_id = $1 AND status = 'queued'",
     [projectId]
   )
-  return Number((rows as { cnt: number }[])[0].cnt)
+  return Number(rows[0].cnt)
 }
 
 // ─── Tickets ─────────────────────────────────────────────────────────────────
 
 export async function listTickets(): Promise<Ticket[]> {
-  const [rows] = await getPool().execute(
-    'SELECT * FROM tickets WHERE status != "deleted" ORDER BY status = "paused" DESC, priority ASC, created_at ASC'
+  const { rows } = await getPool().query(
+    "SELECT * FROM tickets WHERE status != 'deleted' ORDER BY (status = 'paused') DESC, priority ASC, created_at ASC"
   )
-  return (rows as Ticket[]).map(mapTicket)
+  return rows.map(mapTicket)
 }
 
 export async function getTicket(id: string): Promise<Ticket | null> {
-  const [rows] = await getPool().execute(
-    'SELECT * FROM tickets WHERE id = ?', [id]
+  const { rows } = await getPool().query(
+    'SELECT * FROM tickets WHERE id = $1', [id]
   )
-  const arr = rows as Ticket[]
-  return arr.length ? mapTicket(arr[0]) : null
+  return rows.length ? mapTicket(rows[0]) : null
 }
 
 export async function insertTicket(
@@ -96,8 +93,8 @@ export async function insertTicket(
 ): Promise<Ticket> {
   const id = nanoid()
   const ts = now()
-  await getPool().execute(
-    'INSERT INTO tickets (id, project_id, title, description, priority, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+  await getPool().query(
+    "INSERT INTO tickets (id, project_id, title, description, priority, status, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
     [id, project_id, title, description, priority, 'queued', ts, ts]
   )
   return (await getTicket(id))!
@@ -107,79 +104,80 @@ export async function updateTicket(
   id: string,
   fields: Partial<Pick<Ticket, 'title' | 'priority'>>
 ): Promise<void> {
-  const sets: string[] = ['updated_at = ?']
+  const sets: string[] = ['updated_at = $1']
   const vals: (string | number)[] = [now()]
-  if (fields.title !== undefined) { sets.push('title = ?'); vals.push(fields.title) }
-  if (fields.priority !== undefined) { sets.push('priority = ?'); vals.push(fields.priority) }
+  let idx = 2
+  if (fields.title !== undefined) { sets.push(`title = $${idx}`); vals.push(fields.title); idx++ }
+  if (fields.priority !== undefined) { sets.push(`priority = $${idx}`); vals.push(fields.priority); idx++ }
   vals.push(id)
-  await getPool().execute(`UPDATE tickets SET ${sets.join(', ')} WHERE id = ?`, vals)
+  await getPool().query(`UPDATE tickets SET ${sets.join(', ')} WHERE id = $${idx}`, vals)
 }
 
 export async function updateTicketStatus(id: string, status: TicketStatus): Promise<void> {
   const ts = now()
-  const extra: string[] = []
+  const sets: string[] = ['status = $1', 'updated_at = $2']
   const vals: (string | number)[] = [status, ts]
+  let idx = 3
 
-  if (status === 'running') { extra.push(', started_at = ?'); vals.push(ts) }
-  if (status === 'done' || status === 'failed' || status === 'deleted') { extra.push(', completed_at = ?'); vals.push(ts) }
+  if (status === 'running') { sets.push(`started_at = $${idx}`); vals.push(ts); idx++ }
+  if (status === 'done' || status === 'failed' || status === 'deleted') { sets.push(`completed_at = $${idx}`); vals.push(ts); idx++ }
 
   vals.push(id)
-  await getPool().execute(
-    `UPDATE tickets SET status = ?, updated_at = ?${extra.join('')} WHERE id = ?`,
+  await getPool().query(
+    `UPDATE tickets SET ${sets.join(', ')} WHERE id = $${idx}`,
     vals
   )
 }
 
 export async function updateTicketSessionId(id: string, sessionId: string): Promise<void> {
-  await getPool().execute(
-    'UPDATE tickets SET session_id = ?, updated_at = ? WHERE id = ?',
+  await getPool().query(
+    'UPDATE tickets SET session_id = $1, updated_at = $2 WHERE id = $3',
     [sessionId, now(), id]
   )
 }
 
 export async function updateTicketStatusFailed(id: string, error: string): Promise<void> {
   const ts = now()
-  await getPool().execute(
-    'UPDATE tickets SET status = "failed", error = ?, updated_at = ?, completed_at = ? WHERE id = ?',
+  await getPool().query(
+    "UPDATE tickets SET status = 'failed', error = $1, updated_at = $2, completed_at = $3 WHERE id = $4",
     [error, ts, ts, id]
   )
 }
 
 export async function deleteTicket(id: string): Promise<void> {
   const ts = now()
-  await getPool().execute(
-    'UPDATE tickets SET status = "deleted", updated_at = ?, completed_at = ? WHERE id = ?',
+  await getPool().query(
+    "UPDATE tickets SET status = 'deleted', updated_at = $1, completed_at = $2 WHERE id = $3",
     [ts, ts, id]
   )
 }
 
 export async function nextQueuedTicket(): Promise<Ticket | null> {
-  const [rows] = await getPool().execute(
-    'SELECT * FROM tickets WHERE status = "queued" ORDER BY priority ASC, created_at ASC LIMIT 1'
+  const { rows } = await getPool().query(
+    "SELECT * FROM tickets WHERE status = 'queued' ORDER BY priority ASC, created_at ASC LIMIT 1"
   )
-  const arr = rows as Ticket[]
-  return arr.length ? mapTicket(arr[0]) : null
+  return rows.length ? mapTicket(rows[0]) : null
 }
 
 export async function countQueuedTickets(): Promise<number> {
-  const [rows] = await getPool().execute(
-    'SELECT COUNT(*) as cnt FROM tickets WHERE status = "queued"'
+  const { rows } = await getPool().query(
+    "SELECT COUNT(*) as cnt FROM tickets WHERE status = 'queued'"
   )
-  return Number((rows as { cnt: number }[])[0].cnt)
+  return Number(rows[0].cnt)
 }
 
 export async function countPausedTickets(): Promise<number> {
-  const [rows] = await getPool().execute(
-    'SELECT COUNT(*) as cnt FROM tickets WHERE status = "paused"'
+  const { rows } = await getPool().query(
+    "SELECT COUNT(*) as cnt FROM tickets WHERE status = 'paused'"
   )
-  return Number((rows as { cnt: number }[])[0].cnt)
+  return Number(rows[0].cnt)
 }
 
 // ─── Messages ────────────────────────────────────────────────────────────────
 
 export async function getMessages(ticketId: string): Promise<Message[]> {
-  const [rows] = await getPool().execute(
-    'SELECT * FROM messages WHERE ticket_id = ? ORDER BY created_at ASC',
+  const { rows } = await getPool().query(
+    'SELECT * FROM messages WHERE ticket_id = $1 ORDER BY created_at ASC',
     [ticketId]
   )
   return rows as Message[]
@@ -193,20 +191,19 @@ export async function insertMessage(
 ): Promise<Message> {
   const id = nanoid()
   const ts = now()
-  await getPool().execute(
-    'INSERT INTO messages (id, ticket_id, role, content, event_type, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+  await getPool().query(
+    'INSERT INTO messages (id, ticket_id, role, content, event_type, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
     [id, ticketId, role, content, eventType, ts]
   )
   return { id, ticket_id: ticketId, role, content, event_type: eventType, created_at: ts }
 }
 
 export async function getLastUserMessage(ticketId: string): Promise<string | null> {
-  const [rows] = await getPool().execute(
-    'SELECT content FROM messages WHERE ticket_id = ? AND role = "user" ORDER BY created_at DESC LIMIT 1',
+  const { rows } = await getPool().query(
+    "SELECT content FROM messages WHERE ticket_id = $1 AND role = 'user' ORDER BY created_at DESC LIMIT 1",
     [ticketId]
   )
-  const arr = rows as { content: string }[]
-  return arr.length ? arr[0].content : null
+  return rows.length ? rows[0].content : null
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

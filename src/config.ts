@@ -25,7 +25,7 @@ function optionalBool(name: string, defaultValue: boolean): boolean {
 export const config = {
   db: {
     host: required('DB_HOST'),
-    port: optionalInt('DB_PORT', 3306),
+    port: optionalInt('DB_PORT', 5432),
     database: required('DB_NAME'),
     user: required('DB_USER'),
     password: required('DB_PASSWORD'),
