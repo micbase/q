@@ -139,8 +139,8 @@ class Scheduler {
         await emitMessage(ticket.id, errMsg, 'error', 'system')
         await emitTicketStatusChange(ticket.id, 'failed', errMsg)
         await notify.send(`❌ Failed: ${ticket.title}`, errMsg)
-        if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)
       }
+      if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)
     }
   }
 }
