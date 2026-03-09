@@ -13,6 +13,9 @@ export function getPool(): Pool {
       password: config.db.password,
       max: 10,
     })
+    pool.on('error', (err) => {
+      console.error('[db] Unexpected pool error:', err.message)
+    })
   }
   return pool
 }
