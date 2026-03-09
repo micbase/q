@@ -5,6 +5,10 @@ RUN apt-get update && apt-get install -y git bash ca-certificates \
 
 RUN npm install -g @anthropic-ai/claude-code
 
+RUN useradd -m -s /bin/bash claude \
+    && mkdir -p /workspace && chown claude:claude /workspace
+
+USER claude
 WORKDIR /workspace
 
 CMD ["sleep", "infinity"]

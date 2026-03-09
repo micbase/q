@@ -31,7 +31,7 @@ export async function ensureRunning(project: Project): Promise<string> {
     HostConfig: {
       Binds: [
         `${config.projectsDir}/${project.name}:/workspace`,
-        `${config.projectsDir}/.claude-sessions/${project.name}:/root/.claude`,
+        `${config.projectsDir}/.claude-sessions/${project.name}:/home/claude/.claude`,
       ],
     },
   })
