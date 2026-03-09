@@ -1,6 +1,7 @@
 <template>
   <div class="py-2">
     <div v-if="loading && projectGroups.length === 0" class="text-sm text-gray-400 px-4 py-6 text-center">Loading...</div>
+    <div v-else-if="loadError" class="text-sm text-red-500 px-4 py-6 text-center">{{ loadError }}</div>
     <div v-else-if="projectGroups.length === 0" class="text-sm text-gray-400 px-4 py-6 text-center">No projects yet</div>
 
     <div v-for="group in projectGroups" :key="group.id">
@@ -51,6 +52,7 @@ const route = useRoute()
 const tickets = ref<Ticket[]>([])
 const projects = ref<Project[]>([])
 const loading = ref(true)
+const loadError = ref('')
 const collapsed = ref<Set<string>>(new Set())
 
 const projectGroups = computed((): ProjectGroup[] => {
@@ -90,7 +92,10 @@ async function load() {
     const [t, p] = await Promise.all([api.listTickets(), api.listProjects()])
     tickets.value = t
     projects.value = p
-  } catch { /* ignore */ } finally {
+    loadError.value = ''
+  } catch (err) {
+    loadError.value = err instanceof Error ? err.message : 'Failed to load'
+  } finally {
     loading.value = false
   }
 }
