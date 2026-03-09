@@ -65,9 +65,10 @@ export async function* runDrySession(
 
   if (!isResume && shouldAskQuestion(ticket)) {
     yield {
-      type: 'paused',
+      type: 'text',
       content: '[DRY RUN] Should I create a new migration file or modify the existing one?',
     }
+    yield { type: 'paused', content: '' }
   } else {
     yield {
       type: 'text',

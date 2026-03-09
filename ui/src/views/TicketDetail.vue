@@ -58,11 +58,9 @@
           </div>
         </div>
 
-        <!-- Paused message -->
-        <div v-else-if="msg.message_type === 'paused'" class="flex justify-start">
-          <div class="bg-orange-50 border border-orange-200 rounded-2xl rounded-tl-sm px-4 py-2 max-w-sm text-base whitespace-pre-wrap text-orange-800">
-            {{ msg.content }}
-          </div>
+        <!-- Paused marker -->
+        <div v-else-if="msg.message_type === 'paused'" class="text-center">
+          <span class="text-sm text-orange-400 bg-orange-50 px-3 py-1 rounded-full">Waiting for input</span>
         </div>
 
         <!-- Done -->

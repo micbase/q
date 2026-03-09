@@ -96,7 +96,7 @@ class Scheduler {
       for await (const event of eventSource) {
         if (event.type === 'done') {
           await withTransaction(async (tx) => {
-            await emitMessage(ticket.id, event.content, 'done', 'assistant', tx)
+            await emitMessage(ticket.id, '', 'done', 'assistant', tx)
             if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id, tx)
             await emitTicketStatusChange(ticket.id, 'done', undefined, tx)
           })
@@ -108,7 +108,7 @@ class Scheduler {
 
         if (event.type === 'paused') {
           await withTransaction(async (tx) => {
-            await emitMessage(ticket.id, event.content, 'paused', 'assistant', tx)
+            await emitMessage(ticket.id, '', 'paused', 'assistant', tx)
             if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id, tx)
             await emitTicketStatusChange(ticket.id, 'paused', undefined, tx)
           })
