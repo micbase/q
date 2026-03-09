@@ -86,17 +86,18 @@
     </div>
 
     <!-- Reply box (when paused or done) -->
-    <div v-if="canReply" class="border-t border-gray-200 px-5 py-3 flex gap-2 shrink-0">
+    <div class="border-t border-gray-200 px-5 py-3 flex gap-2 shrink-0">
       <input
         v-model="reply"
         type="text"
         :placeholder="ticketStatus === 'done' ? 'Follow up...' : 'Type your reply...'"
+        :disabled="inputDisabled"
         @keydown.enter="sendReply"
-        class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-50"
       />
       <button
         @click="sendReply"
-        :disabled="!reply.trim() || sending"
+        :disabled="!reply.trim() || inputDisabled"
         class="bg-blue-600 text-white px-4 py-2 rounded-lg text-base font-medium hover:bg-blue-700 disabled:opacity-50"
       >
         Send
@@ -133,7 +134,7 @@ const scrollEl = ref<HTMLElement | null>(null)
 const expanded = ref<Set<number>>(new Set())
 let es: EventSource | null = null
 
-const canReply = computed(() => ticketStatus.value === 'paused' || ticketStatus.value === 'done')
+const inputDisabled = computed(() => sending.value || ticketStatus.value === 'running' || ticketStatus.value === 'queued')
 
 function relativeTime(ms: number): string {
   const diff = Math.max(0, Date.now() - ms)
