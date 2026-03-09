@@ -33,7 +33,11 @@ export async function streamRoutes(app: FastifyInstance) {
         message_type: msg.event_type,
         role: msg.role,
       }
-      res.write(`data: ${JSON.stringify(event)}\n\n`)
+      try {
+        res.write(`data: ${JSON.stringify(event)}\n\n`)
+      } catch {
+        return // client disconnected during replay
+      }
     }
 
     // Send current ticket status
@@ -44,7 +48,11 @@ export async function streamRoutes(app: FastifyInstance) {
         ticket_id: id,
         ticket_status: currentTicket.status,
       }
-      res.write(`data: ${JSON.stringify(statusEvent)}\n\n`)
+      try {
+        res.write(`data: ${JSON.stringify(statusEvent)}\n\n`)
+      } catch {
+        return // client disconnected during replay
+      }
     }
 
     // Subscribe to live events
@@ -60,14 +68,13 @@ export async function streamRoutes(app: FastifyInstance) {
       }
     }, 15_000)
 
-    req.socket.on('close', () => {
-      clearInterval(keepalive)
-      broker.unsubscribe(id, res)
-    })
-
     // Don't return — keep connection open
     await new Promise<void>(resolve => {
-      req.socket.on('close', resolve)
+      req.socket.on('close', () => {
+        clearInterval(keepalive)
+        broker.unsubscribe(id, res)
+        resolve()
+      })
     })
   })
 }
