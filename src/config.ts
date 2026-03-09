@@ -28,9 +28,9 @@ export const config = {
     port: optionalInt('DB_PORT', 5432),
     database: required('DB_NAME'),
     user: required('DB_USER'),
-    password: required('DB_PASSWORD'),
+    password: optional('DB_PASSWORD', ''),
   },
-  anthropicApiKey: optional('ANTHROPIC_API_KEY', ''),
+
   ntfyUrl: optional('NTFY_URL', ''),
   port: optionalInt('API_PORT', 3200),
   pollIntervalMs: optionalInt('POLL_INTERVAL_MS', 5000),
@@ -50,9 +50,6 @@ export function scrubEnv(): void {
 }
 
 export function validate(): void {
-  if (!config.dryRun && !config.anthropicApiKey) {
-    throw new Error('ANTHROPIC_API_KEY is required when DRY_RUN is not true')
-  }
 
   console.log(`Config loaded:`)
   console.log(`  DB: ${config.db.user}@${config.db.host}:${config.db.port}/${config.db.database}`)

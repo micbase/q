@@ -1,5 +1,5 @@
 import { PassThrough } from 'stream'
-import { config } from '../config'
+
 import { isQuestion } from './session'
 import type { ClaudeEvent, MessageType } from '../../shared/types'
 import { getDocker } from './docker'
@@ -43,7 +43,7 @@ export async function* callClaude(
 
   const exec = await getDocker().getContainer(containerId).exec({
     Cmd: cmd,
-    Env: [`ANTHROPIC_API_KEY=${config.anthropicApiKey}`],
+
     AttachStdin: true,
     AttachStdout: true,
     AttachStderr: true,
