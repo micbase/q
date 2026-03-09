@@ -1,5 +1,9 @@
-import { Pool } from 'pg'
+import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg'
 import { config } from '../config'
+
+export interface DB {
+  query<T extends QueryResultRow = any>(text: string, params?: unknown[]): Promise<QueryResult<T>>
+}
 
 let pool: Pool | null = null
 
@@ -18,6 +22,24 @@ export function getPool(): Pool {
     })
   }
   return pool
+}
+
+/** Default DB handle — uses the pool (auto-checkout per query). */
+export const db: DB = { query: (...args) => getPool().query(...args) }
+
+export async function withTransaction<T>(fn: (tx: DB) => Promise<T>): Promise<T> {
+  const client = await getPool().connect()
+  try {
+    await client.query('BEGIN')
+    const result = await fn(client)
+    await client.query('COMMIT')
+    return result
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
 }
 
 export async function testConnection(): Promise<void> {

@@ -1,5 +1,6 @@
 import { config } from '../config'
 import * as db from '../db/queries'
+import { withTransaction } from '../db/connection'
 import { callClaude } from './claude-client'
 import { runDrySession, buildInitialPrompt } from './session'
 import * as provisioner from './provisioner'
@@ -94,30 +95,36 @@ class Scheduler {
 
       for await (const event of eventSource) {
         if (event.type === 'done') {
-          await emitMessage(ticket.id, event.content, 'done', 'assistant')
+          await withTransaction(async (tx) => {
+            await emitMessage(ticket.id, event.content, 'done', 'assistant', tx)
+            if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id, tx)
+            await emitTicketStatusChange(ticket.id, 'done', undefined, tx)
+          })
           console.log(`[scheduler] Ticket ${ticket.id} completed`)
-          if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id)
-          await emitTicketStatusChange(ticket.id, 'done')
           await notify.send(`✅ Done: ${ticket.title}`)
           if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)
           break
         }
 
         if (event.type === 'paused') {
-          await emitMessage(ticket.id, event.content, 'paused', 'assistant')
+          await withTransaction(async (tx) => {
+            await emitMessage(ticket.id, event.content, 'paused', 'assistant', tx)
+            if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id, tx)
+            await emitTicketStatusChange(ticket.id, 'paused', undefined, tx)
+          })
           console.log(`[scheduler] Ticket ${ticket.id} paused (waiting for input)`)
-          if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id)
-          await emitTicketStatusChange(ticket.id, 'paused')
           await notify.send(`💬 Input needed: ${ticket.title}`, event.content)
           if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)
           break
         }
 
         if (event.type === 'error') {
-          await emitMessage(ticket.id, event.content, 'error', 'assistant')
+          await withTransaction(async (tx) => {
+            await emitMessage(ticket.id, event.content, 'error', 'assistant', tx)
+            if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id, tx)
+            await emitTicketStatusChange(ticket.id, 'failed', event.content, tx)
+          })
           console.error(`[scheduler] Ticket ${ticket.id} errored: ${event.content}`)
-          if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id)
-          await emitTicketStatusChange(ticket.id, 'failed', event.content)
           await notify.send(`❌ Failed: ${ticket.title}`, event.content)
           if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)
           break
@@ -136,8 +143,10 @@ class Scheduler {
       } else {
         const errMsg = err instanceof Error ? err.message : String(err)
         console.error(`Ticket ${ticket.id} failed:`, err)
-        await emitMessage(ticket.id, errMsg, 'error', 'system')
-        await emitTicketStatusChange(ticket.id, 'failed', errMsg)
+        await withTransaction(async (tx) => {
+          await emitMessage(ticket.id, errMsg, 'error', 'system', tx)
+          await emitTicketStatusChange(ticket.id, 'failed', errMsg, tx)
+        })
         await notify.send(`❌ Failed: ${ticket.title}`, errMsg)
       }
       if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import * as db from '../db/queries'
+import { withTransaction } from '../db/connection'
 import type { Project } from '../../shared/types'
 import { getContainerStatus } from '../worker/provisioner'
 
@@ -55,7 +56,9 @@ export async function projectRoutes(app: FastifyInstance) {
       return reply.status(409).send({ error: 'Cannot delete a project with a running container' })
     }
     try {
-      await db.deleteProject(req.params.id)
+      await withTransaction(async (tx) => {
+        await db.deleteProject(req.params.id, tx)
+      })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       if (msg.includes('active tickets')) {
