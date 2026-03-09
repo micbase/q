@@ -53,10 +53,11 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { api } from './api'
 import type { Status } from '../../shared/types'
+import { bus } from './bus'
 import ProjectTree from './components/ProjectTree.vue'
 
 const status = ref<Status | null>(null)
-let interval: ReturnType<typeof setInterval>
+let unsubBus: (() => void) | undefined
 
 async function loadStatus() {
   try {
@@ -66,8 +67,8 @@ async function loadStatus() {
 
 onMounted(() => {
   loadStatus()
-  interval = setInterval(loadStatus, 5000)
+  unsubBus = bus.onRefresh(loadStatus)
 })
 
-onUnmounted(() => clearInterval(interval))
+onUnmounted(() => { unsubBus?.() })
 </script>

@@ -52,7 +52,6 @@ const tickets = ref<Ticket[]>([])
 const projects = ref<Project[]>([])
 const loading = ref(true)
 const collapsed = ref<Set<string>>(new Set())
-let interval: ReturnType<typeof setInterval>
 
 const projectGroups = computed((): ProjectGroup[] => {
   const ticketsByProject = new Map<string, Ticket[]>()
@@ -102,9 +101,8 @@ let unsubBus: (() => void) | undefined
 
 onMounted(() => {
   load()
-  interval = setInterval(load, 5000)
   unsubBus = bus.onRefresh(load)
 })
 
-onUnmounted(() => { clearInterval(interval); unsubBus?.() })
+onUnmounted(() => { unsubBus?.() })
 </script>
