@@ -47,7 +47,7 @@ export async function* runDrySession(
   yield { type: 'text', content: `[DRY RUN] Starting task: ${ticket.title}` }
 
   await delay(600)
-  yield { type: 'tool_use', content: '[read_file] Reading project structure...' }
+  yield { type: 'tool_use', tool_name: 'Read', content: '{"file_path": "src/"}' }
 
   await delay(400)
   yield { type: 'tool_result', content: 'src/\n  main.ts\n  config.ts\n' }
@@ -56,7 +56,7 @@ export async function* runDrySession(
   yield { type: 'text', content: '[DRY RUN] Analyzing codebase...' }
 
   await delay(500)
-  yield { type: 'tool_use', content: '[bash] Running tests...' }
+  yield { type: 'tool_use', tool_name: 'Bash', content: '{"command": "npm test"}' }
 
   await delay(1000)
   yield { type: 'tool_result', content: 'All tests passed.' }

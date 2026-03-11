@@ -48,20 +48,20 @@
           ]">
             <!-- Tool use header -->
             <div
-              @click="g.use && parseTool(g.use.content).expandable && toggleExpanded(g.idx)"
-              :class="['flex items-center gap-2 px-3 py-1.5 w-full text-left bg-gray-100', g.use && parseTool(g.use.content).expandable ? 'cursor-pointer hover:bg-gray-200' : '']"
+              @click="g.use?.tool_name && isExpandable(g.use.tool_name) && toggleExpanded(g.idx)"
+              :class="['flex items-center gap-2 px-3 py-1.5 w-full text-left bg-gray-100', g.use?.tool_name && isExpandable(g.use.tool_name) ? 'cursor-pointer hover:bg-gray-200' : '']"
             >
-              <span v-if="g.use && parseTool(g.use.content).expandable" class="text-gray-400">{{ expanded.has(g.idx) ? '▼' : '▶' }}</span>
-              <span class="font-semibold text-gray-700 truncate flex-1" v-if="g.use">{{ parseTool(g.use.content).title }}</span>
+              <span v-if="g.use?.tool_name && isExpandable(g.use.tool_name)" class="text-gray-400">{{ expanded.has(g.idx) ? '▼' : '▶' }}</span>
+              <span class="font-semibold text-gray-700 truncate flex-1" v-if="g.use?.tool_name">{{ toolTitle(g.use.tool_name, g.use.content) }}</span>
               <span v-if="g.result && isErrorResult(g.result.content)" class="text-red-500 text-xs font-medium ml-auto shrink-0">error</span>
             </div>
 
             <!-- Expanded: tool input -->
-            <div v-if="expanded.has(g.idx) && g.use && parseTool(g.use.content).body"
-              class="px-3 py-2 font-mono text-xs text-blue-900 whitespace-pre-wrap max-h-64 overflow-y-auto bg-blue-50 border-t border-gray-300">{{ parseTool(g.use.content).body }}</div>
+            <div v-if="expanded.has(g.idx) && g.use?.tool_name && toolBody(g.use.tool_name, g.use.content)"
+              class="px-3 py-2 font-mono text-xs text-blue-900 whitespace-pre-wrap max-h-64 overflow-y-auto bg-blue-50 border-t border-gray-300">{{ toolBody(g.use.tool_name, g.use.content) }}</div>
 
             <!-- Expanded: tool result -->
-            <div v-if="expanded.has(g.idx) && g.result && g.use && parseTool(g.use.content).expandable" :class="[
+            <div v-if="expanded.has(g.idx) && g.result && g.use?.tool_name && isExpandable(g.use.tool_name)" :class="[
               'px-3 py-2 font-mono text-xs whitespace-pre-wrap max-h-96 overflow-y-auto border-t border-gray-300',
               isErrorResult(g.result.content) ? 'bg-red-50 text-red-800' : 'bg-gray-50 text-gray-700'
             ]">{{ g.result.content }}</div>
@@ -126,6 +126,7 @@ interface DisplayMsg {
   message_type: MessageType
   content: string
   role?: string
+  tool_name?: string
 }
 
 interface GroupedMsg {
@@ -189,47 +190,30 @@ function relativeTime(ms: number): string {
   return `${Math.floor(hrs / 24)}d`
 }
 
-interface ParsedTool {
-  title: string
-  body: string        // what to show when expanded (empty = hide)
-  expandable: boolean // whether expanding shows anything
+function toolTitle(name: string, content: string): string {
+  if (!content) return name
+  try {
+    const json = JSON.parse(content)
+    if (json.file_path) return `${name}: ${json.file_path}`
+    if (json.description) return `${name}: ${json.description}`
+    if (json.command) return `${name}: ${json.command}`
+    if (json.pattern) return `${name}: ${json.pattern}`
+  } catch { /* not JSON, ignore */ }
+  return name
 }
 
-const toolCache = new Map<string, ParsedTool>()
+function toolBody(name: string, content: string): string {
+  if (!content) return ''
+  try {
+    const json = JSON.parse(content)
+    if (name === 'Bash') return json.command ?? content
+    if (name === 'Read' || name === 'Write') return ''
+  } catch { /* not JSON */ }
+  return content
+}
 
-function parseTool(content: string): ParsedTool {
-  const cached = toolCache.get(content)
-  if (cached) return cached
-
-  const nameMatch = content.match(/^\[([^\]]+)\]/)
-  const name = nameMatch ? nameMatch[1] : content.split('\n')[0]
-  const nlIdx = content.indexOf('\n')
-  const rawBody = nlIdx === -1 ? '' : content.slice(nlIdx + 1)
-
-  let title = name
-  let body = rawBody
-  let showResult = true
-
-  if (rawBody) {
-    try {
-      const json = JSON.parse(rawBody)
-      if (json.file_path) title = `${name}: ${json.file_path}`
-      else if (json.description) title = `${name}: ${json.description}`
-      else if (json.command) title = `${name}: ${json.command}`
-      else if (json.pattern) title = `${name}: ${json.pattern}`
-
-      if (name === 'Bash') body = json.command ?? rawBody
-      else if (name === 'Read' || name === 'Write') body = ''
-    } catch {
-      const firstLine = rawBody.split('\n')[0].trim()
-      if (firstLine && firstLine !== '{') title = `${name}: ${firstLine}`
-    }
-  }
-
-  const expandable = name !== 'Read'
-  const parsed = { title, body, expandable }
-  toolCache.set(content, parsed)
-  return parsed
+function isExpandable(name: string): boolean {
+  return name !== 'Read'
 }
 
 function isErrorResult(content: string): boolean {
@@ -278,6 +262,7 @@ function handleEvent(event: StreamEvent) {
       message_type: event.message_type!,
       content: event.content ?? '',
       role: event.role,
+      tool_name: event.tool_name,
     })
     if (event.message_type === 'tool_use' || event.message_type === 'tool_result') {
       expanded.value.add(idx)

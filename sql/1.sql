@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS messages (
   content      TEXT             NOT NULL,
   event_type   VARCHAR(64)      NOT NULL,
   -- 'text' | 'tool_use' | 'tool_result' | 'done' | 'paused' | 'error'
+  tool_name    VARCHAR(64),
   created_at   BIGINT           NOT NULL,
   FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
 );

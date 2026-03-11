@@ -190,15 +190,16 @@ export async function insertMessage(
   role: 'user' | 'assistant' | 'system',
   content: string,
   messageType: MessageType,
+  toolName?: string,
   q: DB = defaultDB,
 ): Promise<Message> {
   const id = nanoid()
   const ts = now()
   await q.query(
-    'INSERT INTO messages (id, ticket_id, role, content, event_type, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
-    [id, ticketId, role, content, messageType, ts]
+    'INSERT INTO messages (id, ticket_id, role, content, event_type, tool_name, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    [id, ticketId, role, content, messageType, toolName ?? null, ts]
   )
-  return { id, ticket_id: ticketId, role, content, event_type: messageType, created_at: ts }
+  return { id, ticket_id: ticketId, role, content, event_type: messageType, tool_name: toolName, created_at: ts }
 }
 
 export async function getLastUserMessage(ticketId: string, q: DB = defaultDB): Promise<string | null> {

@@ -43,7 +43,7 @@ export async function ticketRoutes(app: FastifyInstance) {
 
     const ticket = await withTransaction(async (tx) => {
       const t = await db.insertTicket(project_id, title, description, priority, tx)
-      await emitMessage(t.id, description, 'text', 'user', tx)
+      await emitMessage(t.id, description, 'text', 'user', undefined, tx)
       await emitTicketStatusChange(t.id, 'queued', undefined, tx)
       return t
     })

@@ -96,7 +96,7 @@ class Scheduler {
       for await (const event of eventSource) {
         if (event.type === 'done') {
           await withTransaction(async (tx) => {
-            await emitMessage(ticket.id, '', 'done', 'assistant', tx)
+            await emitMessage(ticket.id, '', 'done', 'assistant', undefined, tx)
             if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id, tx)
             await emitTicketStatusChange(ticket.id, 'done', undefined, tx)
           })
@@ -108,7 +108,7 @@ class Scheduler {
 
         if (event.type === 'paused') {
           await withTransaction(async (tx) => {
-            await emitMessage(ticket.id, '', 'paused', 'assistant', tx)
+            await emitMessage(ticket.id, '', 'paused', 'assistant', undefined, tx)
             if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id, tx)
             await emitTicketStatusChange(ticket.id, 'paused', undefined, tx)
           })
@@ -120,7 +120,7 @@ class Scheduler {
 
         if (event.type === 'error') {
           await withTransaction(async (tx) => {
-            await emitMessage(ticket.id, event.content, 'error', 'assistant', tx)
+            await emitMessage(ticket.id, event.content, 'error', 'assistant', undefined, tx)
             if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id, tx)
             await emitTicketStatusChange(ticket.id, 'failed', event.content, tx)
           })
@@ -131,7 +131,7 @@ class Scheduler {
         }
 
         // Normal message events (text, tool_use, tool_result)
-        await emitMessage(ticket.id, event.content, event.type, 'assistant')
+        await emitMessage(ticket.id, event.content, event.type, 'assistant', event.tool_name)
       }
     } catch (err) {
       if (isQuotaError(err)) {
@@ -144,7 +144,7 @@ class Scheduler {
         const errMsg = err instanceof Error ? err.message : String(err)
         console.error(`Ticket ${ticket.id} failed:`, err)
         await withTransaction(async (tx) => {
-          await emitMessage(ticket.id, errMsg, 'error', 'system', tx)
+          await emitMessage(ticket.id, errMsg, 'error', 'system', undefined, tx)
           await emitTicketStatusChange(ticket.id, 'failed', errMsg, tx)
         })
         await notify.send(`❌ Failed: ${ticket.title}`, errMsg)

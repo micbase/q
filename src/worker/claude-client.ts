@@ -175,7 +175,7 @@ function* mapCLIEvent(event: CLIEvent): Generator<ClaudeEvent> {
         yield { type: 'text', content: block.text }
       } else if (block.type === 'tool_use') {
         const detail = block.input ? JSON.stringify(block.input, null, 2) : ''
-        yield { type: 'tool_use', content: `[${block.name}]${detail ? '\n' + detail : ''}` }
+        yield { type: 'tool_use', tool_name: block.name ?? 'unknown', content: detail }
       } else if (block.type === 'tool_result') {
         const content = typeof block.content === 'string'
           ? block.content

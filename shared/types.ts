@@ -9,6 +9,7 @@ export type MessageType = 'text' | 'tool_use' | 'tool_result' | 'done' | 'paused
 export interface ClaudeEvent {
   type: MessageType
   content: string
+  tool_name?: string   // set for tool_use events
   session_id?: string
 }
 
@@ -20,12 +21,12 @@ export interface StreamEvent {
   ticket_id: string
   content?: string
   message_type?: MessageType
+  tool_name?: string   // set for tool_use events
   role?: 'user' | 'assistant' | 'system'
   ticket_status?: TicketStatus
   container_status?: ContainerStatus
   session_id?: string
 }
-
 export interface Project {
   id: string
   name: string
@@ -55,6 +56,7 @@ export interface Message {
   role: 'user' | 'assistant' | 'system'
   content: string
   event_type: MessageType
+  tool_name?: string
   created_at: number
 }
 
