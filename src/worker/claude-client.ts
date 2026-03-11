@@ -6,13 +6,20 @@ import { getDocker } from './docker'
 
 // ─── CLI event types (stream-json output) ─────────────────────────────────────
 
-interface CLIAssistantEvent {
-  type: 'assistant'
+interface CLIContentBlock {
+  type: string
+  text?: string
+  name?: string
+  content?: string
+  input?: unknown
+  [key: string]: unknown
+}
+
+interface CLIMessageEvent {
+  type: 'assistant' | 'user'
   message: {
-    content: Array<
-      | { type: 'text'; text: string }
-      | { type: 'tool_use'; name: string; [key: string]: unknown }
-    >
+    role: string
+    content: CLIContentBlock[] | string
   }
 }
 
@@ -23,7 +30,7 @@ interface CLIResultEvent {
   session_id?: string
 }
 
-type CLIEvent = CLIAssistantEvent | CLIResultEvent | { type: string }
+type CLIEvent = CLIMessageEvent | CLIResultEvent | { type: string; [key: string]: unknown }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
@@ -160,13 +167,26 @@ export async function* callClaude(
 // ─── Event mapping ────────────────────────────────────────────────────────────
 
 function* mapCLIEvent(event: CLIEvent): Generator<ClaudeEvent> {
-  if (event.type === 'assistant') {
-    const e = event as CLIAssistantEvent
-    for (const block of e.message.content) {
+  if (event.type === 'assistant' || event.type === 'user') {
+    const e = event as CLIMessageEvent
+    const blocks = Array.isArray(e.message.content) ? e.message.content : []
+    for (const block of blocks) {
       if (block.type === 'text' && block.text) {
         yield { type: 'text', content: block.text }
       } else if (block.type === 'tool_use') {
-        yield { type: 'tool_use', content: `[${block.name}]` }
+        const detail = block.input ? JSON.stringify(block.input, null, 2) : ''
+        yield { type: 'tool_use', content: `[${block.name}]${detail ? '\n' + detail : ''}` }
+      } else if (block.type === 'tool_result') {
+        const content = typeof block.content === 'string'
+          ? block.content
+          : Array.isArray(block.content)
+            ? (block.content as CLIContentBlock[])
+                .map(b => b.text ?? JSON.stringify(b))
+                .join('\n')
+            : JSON.stringify(block.content ?? '')
+        if (content) {
+          yield { type: 'tool_result', content }
+        }
       }
     }
   } else if (event.type === 'result') {
@@ -177,6 +197,7 @@ function* mapCLIEvent(event: CLIEvent): Generator<ClaudeEvent> {
     } else {
       yield { type: 'error', content: `Session ended: ${e.subtype}`, session_id: e.session_id }
     }
+  } else if (event.type !== 'system') {
+    console.log(`[claude-client] unhandled event type: ${event.type} ${JSON.stringify(event).slice(0, 300)}`)
   }
-  // 'system' and other event types are informational only — skip
 }

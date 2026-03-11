@@ -25,53 +25,63 @@
         No messages yet
       </div>
 
-      <template v-for="(msg, i) in messages" :key="i">
+      <template v-for="(g, gi) in grouped" :key="gi">
         <!-- User message -->
-        <div v-if="msg.message_type === 'text' && msg.role === 'user'" class="flex justify-end">
+        <div v-if="g.kind === 'msg' && g.msg!.message_type === 'text' && g.msg!.role === 'user'" class="flex justify-end">
           <div class="bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-2 max-w-xs text-base whitespace-pre-wrap">
-            {{ msg.content }}
+            {{ g.msg!.content }}
           </div>
         </div>
 
         <!-- Assistant text -->
-        <div v-else-if="msg.message_type === 'text'" class="flex justify-start">
-          <div class="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-2 max-w-sm text-base whitespace-pre-wrap">
-            {{ msg.content }}
+        <div v-else-if="g.kind === 'msg' && g.msg!.message_type === 'text'" class="flex justify-start">
+          <div class="bg-amber-50 border border-amber-200 rounded-2xl rounded-tl-sm px-4 py-2 max-w-full w-full text-base whitespace-pre-wrap text-gray-800">
+            {{ g.msg!.content }}
           </div>
         </div>
 
-        <!-- Tool use/result chips -->
-        <div v-else-if="msg.message_type === 'tool_use' || msg.message_type === 'tool_result'" class="flex justify-start">
-          <div
-            class="bg-gray-100 rounded-lg text-sm text-gray-600 overflow-hidden"
-          >
-            <button
-              @click="toggleExpanded(i)"
-              class="flex items-center gap-2 px-3 py-1.5 w-full text-left hover:bg-gray-200"
+        <!-- Tool call + result pair -->
+        <div v-else-if="g.kind === 'tool_pair'" class="flex justify-start">
+          <div :class="[
+            'border rounded-lg text-sm overflow-hidden max-w-full w-full',
+            g.result && isErrorResult(g.result.content) ? 'border-red-300' : 'border-gray-300'
+          ]">
+            <!-- Tool use header -->
+            <div
+              @click="g.use && parseTool(g.use.content).expandable && toggleExpanded(g.idx)"
+              :class="['flex items-center gap-2 px-3 py-1.5 w-full text-left bg-gray-100', g.use && parseTool(g.use.content).expandable ? 'cursor-pointer hover:bg-gray-200' : '']"
             >
-              <span>{{ expanded.has(i) ? '▼' : '▶' }}</span>
-              <span class="font-mono">{{ msg.content.split('\n')[0] }}</span>
-            </button>
-            <div v-if="expanded.has(i)" class="px-3 pb-2 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
-              {{ msg.content }}
+              <span v-if="g.use && parseTool(g.use.content).expandable" class="text-gray-400">{{ expanded.has(g.idx) ? '▼' : '▶' }}</span>
+              <span class="font-semibold text-gray-700 truncate flex-1" v-if="g.use">{{ parseTool(g.use.content).title }}</span>
+              <span v-if="g.result && isErrorResult(g.result.content)" class="text-red-500 text-xs font-medium ml-auto shrink-0">error</span>
             </div>
+
+            <!-- Expanded: tool input -->
+            <div v-if="expanded.has(g.idx) && g.use && parseTool(g.use.content).body"
+              class="px-3 py-2 font-mono text-xs text-blue-900 whitespace-pre-wrap max-h-64 overflow-y-auto bg-blue-50 border-t border-gray-300">{{ parseTool(g.use.content).body }}</div>
+
+            <!-- Expanded: tool result -->
+            <div v-if="expanded.has(g.idx) && g.result && g.use && parseTool(g.use.content).expandable" :class="[
+              'px-3 py-2 font-mono text-xs whitespace-pre-wrap max-h-96 overflow-y-auto border-t border-gray-300',
+              isErrorResult(g.result.content) ? 'bg-red-50 text-red-800' : 'bg-gray-50 text-gray-700'
+            ]">{{ g.result.content }}</div>
           </div>
         </div>
 
         <!-- Paused marker -->
-        <div v-else-if="msg.message_type === 'paused'" class="text-center">
+        <div v-else-if="g.kind === 'msg' && g.msg!.message_type === 'paused'" class="text-center">
           <span class="text-sm text-orange-400 bg-orange-50 px-3 py-1 rounded-full">Waiting for input</span>
         </div>
 
         <!-- Done -->
-        <div v-else-if="msg.message_type === 'done'" class="text-center">
+        <div v-else-if="g.kind === 'msg' && g.msg!.message_type === 'done'" class="text-center">
           <span class="text-sm text-gray-400 bg-gray-100 px-3 py-1 rounded-full">Task complete</span>
         </div>
 
         <!-- Error -->
-        <div v-else-if="msg.message_type === 'error'" class="flex justify-start">
-          <div class="bg-red-50 border border-red-200 rounded-lg px-4 py-2 max-w-sm text-base text-red-700 whitespace-pre-wrap">
-            {{ msg.content }}
+        <div v-else-if="g.kind === 'msg' && g.msg!.message_type === 'error'" class="flex justify-start">
+          <div class="bg-red-50 border border-red-200 rounded-lg px-4 py-2 max-w-full w-full text-base text-red-700 whitespace-pre-wrap">
+            {{ g.msg!.content }}
           </div>
         </div>
       </template>
@@ -118,6 +128,14 @@ interface DisplayMsg {
   role?: string
 }
 
+interface GroupedMsg {
+  kind: 'msg' | 'tool_pair'
+  msg?: DisplayMsg          // for kind === 'msg'
+  use?: DisplayMsg          // for kind === 'tool_pair'
+  result?: DisplayMsg       // for kind === 'tool_pair' (may arrive later)
+  idx: number               // original index for expand tracking
+}
+
 const props = defineProps<{ id: string }>()
 
 const ticket = ref<Ticket | null>(null)
@@ -134,6 +152,32 @@ let es: EventSource | null = null
 
 const inputDisabled = computed(() => sending.value || ticketStatus.value === 'running' || ticketStatus.value === 'queued')
 
+const grouped = computed<GroupedMsg[]>(() => {
+  const out: GroupedMsg[] = []
+  const msgs = messages.value
+  let i = 0
+  while (i < msgs.length) {
+    if (msgs[i].message_type === 'tool_use') {
+      const pair: GroupedMsg = { kind: 'tool_pair', use: msgs[i], idx: i }
+      if (i + 1 < msgs.length && msgs[i + 1].message_type === 'tool_result') {
+        pair.result = msgs[i + 1]
+        i += 2
+      } else {
+        i++
+      }
+      out.push(pair)
+    } else if (msgs[i].message_type === 'tool_result') {
+      // orphaned result (no preceding tool_use)
+      out.push({ kind: 'tool_pair', result: msgs[i], idx: i })
+      i++
+    } else {
+      out.push({ kind: 'msg', msg: msgs[i], idx: i })
+      i++
+    }
+  }
+  return out
+})
+
 function relativeTime(ms: number): string {
   const diff = Math.max(0, Date.now() - ms)
   const secs = Math.floor(diff / 1000)
@@ -143,6 +187,58 @@ function relativeTime(ms: number): string {
   const hrs = Math.floor(mins / 60)
   if (hrs < 24) return `${hrs}h`
   return `${Math.floor(hrs / 24)}d`
+}
+
+interface ParsedTool {
+  title: string
+  body: string        // what to show when expanded (empty = hide)
+  expandable: boolean // whether expanding shows anything
+}
+
+const toolCache = new Map<string, ParsedTool>()
+
+function parseTool(content: string): ParsedTool {
+  const cached = toolCache.get(content)
+  if (cached) return cached
+
+  const nameMatch = content.match(/^\[([^\]]+)\]/)
+  const name = nameMatch ? nameMatch[1] : content.split('\n')[0]
+  const nlIdx = content.indexOf('\n')
+  const rawBody = nlIdx === -1 ? '' : content.slice(nlIdx + 1)
+
+  let title = name
+  let body = rawBody
+  let showResult = true
+
+  if (rawBody) {
+    try {
+      const json = JSON.parse(rawBody)
+      if (json.file_path) title = `${name}: ${json.file_path}`
+      else if (json.description) title = `${name}: ${json.description}`
+      else if (json.command) title = `${name}: ${json.command}`
+      else if (json.pattern) title = `${name}: ${json.pattern}`
+
+      if (name === 'Bash') body = json.command ?? rawBody
+      else if (name === 'Read' || name === 'Write') body = ''
+    } catch {
+      const firstLine = rawBody.split('\n')[0].trim()
+      if (firstLine && firstLine !== '{') title = `${name}: ${firstLine}`
+    }
+  }
+
+  const expandable = name !== 'Read'
+  const parsed = { title, body, expandable }
+  toolCache.set(content, parsed)
+  return parsed
+}
+
+function isErrorResult(content: string): boolean {
+  const lower = content.toLowerCase()
+  return /exit code [^0]/.test(lower)
+    || lower.includes('error')
+    || lower.includes('not found')
+    || lower.includes('failed')
+    || lower.includes('permission denied')
 }
 
 function toggleExpanded(i: number) {
@@ -177,11 +273,15 @@ async function sendReply() {
 
 function handleEvent(event: StreamEvent) {
   if (event.type === 'NewMessage') {
+    const idx = messages.value.length
     messages.value.push({
       message_type: event.message_type!,
       content: event.content ?? '',
       role: event.role,
     })
+    if (event.message_type === 'tool_use' || event.message_type === 'tool_result') {
+      expanded.value.add(idx)
+    }
     scrollToBottom()
   }
 
