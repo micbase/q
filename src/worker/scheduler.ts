@@ -1,8 +1,10 @@
 import { config } from '../config'
 import * as db from '../db/queries'
 import { withTransaction } from '../db/connection'
+import type { ClaudeEvent } from '../../shared/types'
 import { callClaude } from './claude-client'
 import { runDrySession, buildInitialPrompt } from './session'
+import { ensureWorktree, removeWorktree } from './github'
 import * as provisioner from './provisioner'
 import * as notify from './notify'
 import { emitMessage, emitTicketStatusChange } from '../broker/emit'
@@ -83,15 +85,22 @@ class Scheduler {
       console.log(`[scheduler] Starting ticket ${ticket.id} "${ticket.title}"`)
     }
 
+    let containerId: string | undefined
+
     try {
-      const eventSource = config.dryRun
-        ? runDrySession(ticket, isResume)
-        : await (async () => {
-            const project = await db.getProject(ticket.project_id)
-            if (!project) throw new Error(`Project ${ticket.project_id} not found`)
-            const containerId = await provisioner.ensureRunning(project)
-            return callClaude(containerId, prompt, ticket.session_id ?? undefined)
-          })()
+      let eventSource: AsyncGenerator<ClaudeEvent>
+
+      if (config.dryRun) {
+        eventSource = runDrySession(ticket, isResume)
+      } else {
+        const project = await db.getProject(ticket.project_id)
+        if (!project) throw new Error(`Project ${ticket.project_id} not found`)
+        containerId = await provisioner.ensureRunning(project)
+        const workDir = project.github_repo
+          ? await ensureWorktree(containerId, ticket.id)
+          : undefined
+        eventSource = callClaude(containerId, prompt, ticket.session_id ?? undefined, workDir)
+      }
 
       for await (const event of eventSource) {
         if (event.type === 'done') {
@@ -100,6 +109,10 @@ class Scheduler {
             if (event.session_id) await db.updateTicketSessionId(ticket.id, event.session_id, tx)
             await emitTicketStatusChange(ticket.id, 'done', undefined, tx)
           })
+          if (containerId) {
+            await removeWorktree(containerId, ticket.id).catch(err =>
+              console.warn(`[scheduler] Failed to remove worktree for ${ticket.id}:`, err))
+          }
           console.log(`[scheduler] Ticket ${ticket.id} completed`)
           await notify.send(`✅ Done: ${ticket.title}`)
           if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)

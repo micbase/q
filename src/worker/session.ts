@@ -7,8 +7,7 @@ export function buildInitialPrompt(ticket: Ticket): string {
 You have full permission to read and modify files in the working directory.
 Run in fully autonomous mode — do not ask for permission before taking actions.
 
-For this task:
-- Create and work in a git branch named: q/${ticket.id}
+You are already on git branch q/${ticket.id}. For this task:
 - Commit frequently with descriptive messages
 - Push the branch when the task is complete
 - If something is truly blocking and you cannot make a reasonable decision, ask exactly ONE concise question and stop

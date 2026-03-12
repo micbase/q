@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { PassThrough } from 'stream'
 import { config } from '../config'
 import { getDocker } from './docker'
 
@@ -93,23 +94,120 @@ export async function setupGitIdentity(containerId: string): Promise<void> {
   console.log(`[github] Git identity configured in container ${containerId.slice(0, 12)}`)
 }
 
+// ─── Worktree management ─────────────────────────────────────────────────────
+
+const WORKTREE_BASE = '/workspace/.worktrees'
+
+/** Return the worktree path for a ticket */
+export function worktreePath(ticketId: string): string {
+  return `${WORKTREE_BASE}/q/${ticketId}`
+}
+
+/**
+ * Ensure a worktree exists for this ticket, creating one if needed.
+ * - New ticket: fetch latest, create worktree from origin default branch
+ * - Re-opened ticket (branch exists on remote): fetch + recreate worktree from remote branch
+ * - Paused ticket (worktree still exists): no-op
+ */
+export async function ensureWorktree(containerId: string, ticketId: string): Promise<string> {
+  const wt = worktreePath(ticketId)
+  const branch = `q/${ticketId}`
+
+  // If worktree already exists (paused ticket), just return the path
+  const exists = await execInContainer(containerId, ['test', '-d', wt]).then(() => true, () => false)
+  if (exists) {
+    console.log(`[github] Worktree already exists at ${wt}`)
+    return wt
+  }
+
+  // Fetch latest from origin
+  await execInContainer(containerId, ['git', '-C', '/workspace', 'fetch', 'origin'])
+
+  // Check if the branch exists on remote (re-opened ticket)
+  const remoteBranchExists = await execInContainer(containerId, [
+    'git', '-C', '/workspace', 'rev-parse', '--verify', `refs/remotes/origin/${branch}`,
+  ]).then(() => true, () => false)
+
+  // Ensure parent directory exists
+  await execInContainer(containerId, ['mkdir', '-p', `${WORKTREE_BASE}/q`])
+
+  if (remoteBranchExists) {
+    // Re-opened: create worktree tracking the existing remote branch
+    // First remove stale worktree reference if any
+    await execInContainer(containerId, [
+      'git', '-C', '/workspace', 'worktree', 'prune',
+    ])
+    await execInContainer(containerId, [
+      'git', '-C', '/workspace', 'worktree', 'add', wt, branch,
+    ]).catch(async () => {
+      // Branch may exist locally but worktree was removed — reset it
+      await execInContainer(containerId, [
+        'git', '-C', '/workspace', 'branch', '-D', branch,
+      ])
+      await execInContainer(containerId, [
+        'git', '-C', '/workspace', 'worktree', 'add', wt, '-b', branch, `origin/${branch}`,
+      ])
+    })
+    console.log(`[github] Recreated worktree for ${branch} from remote`)
+  } else {
+    // New ticket: determine default branch and create worktree from it
+    const defaultBranch = await execInContainerOutput(containerId, [
+      'git', '-C', '/workspace', 'symbolic-ref', 'refs/remotes/origin/HEAD',
+    ]).then(
+      ref => ref.trim().replace('refs/remotes/origin/', ''),
+      () => 'master',
+    )
+    await execInContainer(containerId, [
+      'git', '-C', '/workspace', 'worktree', 'add', '-b', branch, wt, `origin/${defaultBranch}`,
+    ])
+    console.log(`[github] Created worktree for ${branch} from ${defaultBranch}`)
+  }
+
+  return wt
+}
+
+/** Remove a ticket's worktree (called on done) */
+export async function removeWorktree(containerId: string, ticketId: string): Promise<void> {
+  const wt = worktreePath(ticketId)
+  const exists = await execInContainer(containerId, ['test', '-d', wt]).then(() => true, () => false)
+  if (!exists) return
+
+  await execInContainer(containerId, [
+    'git', '-C', '/workspace', 'worktree', 'remove', '--force', wt,
+  ])
+  console.log(`[github] Removed worktree ${wt}`)
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function execInContainer(containerId: string, cmd: string[]): Promise<void> {
+  await execInContainerOutput(containerId, cmd)
+}
+
+async function execInContainerOutput(containerId: string, cmd: string[]): Promise<string> {
   const exec = await getDocker().getContainer(containerId).exec({
     Cmd: cmd,
     AttachStdout: true,
     AttachStderr: true,
   })
   const stream = await exec.start({})
+
+  // Demux the multiplexed docker stream to get clean stdout/stderr
+  const stdout = new PassThrough()
+  const stderr = new PassThrough()
+  getDocker().modem.demuxStream(stream, stdout, stderr)
+  stream.on('end', () => { stdout.end(); stderr.end() })
+
+  const chunks: Buffer[] = []
   await new Promise<void>((resolve, reject) => {
-    stream.on('end', resolve)
-    stream.on('error', reject)
-    stream.resume()
+    stdout.on('data', (chunk: Buffer) => chunks.push(chunk))
+    stdout.on('end', resolve)
+    stdout.on('error', reject)
   })
 
   const { ExitCode } = await exec.inspect()
   if (ExitCode !== 0) {
     throw new Error(`exec failed (exit ${ExitCode}): ${cmd.join(' ')}`)
   }
+  return Buffer.concat(chunks).toString()
 }

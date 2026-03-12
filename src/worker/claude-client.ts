@@ -38,6 +38,7 @@ export async function* callClaude(
   containerId: string,
   prompt: string,
   sessionId?: string,
+  workDir?: string,
 ): AsyncGenerator<ClaudeEvent> {
   const cmd = ['claude', '-p', '--verbose', '--output-format', 'stream-json', '--dangerously-skip-permissions']
   if (sessionId) {
@@ -46,11 +47,12 @@ export async function* callClaude(
 
   const tag = `[claude-client ${containerId.slice(0, 8)}]`
   console.log(`${tag} exec: ${cmd.join(' ')}`)
+  console.log(`${tag} workDir: ${workDir ?? '/workspace'}`)
   console.log(`${tag} prompt length: ${prompt.length} chars`)
 
   const exec = await getDocker().getContainer(containerId).exec({
     Cmd: cmd,
-
+    WorkingDir: workDir ?? '/workspace',
     AttachStdin: true,
     AttachStdout: true,
     AttachStderr: true,
