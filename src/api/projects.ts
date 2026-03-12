@@ -8,8 +8,17 @@ function enrichProject(project: Project) {
   return { ...project, container_status: getContainerStatus(project.id) }
 }
 
+function isValidGithubRepo(value: unknown): boolean {
+  return typeof value === 'string' && /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/.test(value)
+}
+
 interface CreateProjectBody {
   name: string
+  github_repo?: string
+}
+
+interface UpdateProjectBody {
+  github_repo?: string | null
 }
 
 interface ProjectParams {
@@ -36,7 +45,11 @@ export async function projectRoutes(app: FastifyInstance) {
     if (!/^[a-zA-Z0-9._-]+$/.test(name.trim())) {
       return reply.status(400).send({ error: 'name must contain only alphanumeric characters, hyphens, underscores, and dots' })
     }
-    const project = await db.insertProject(name.trim())
+    const { github_repo } = req.body
+    if (github_repo !== undefined && !isValidGithubRepo(github_repo)) {
+      return reply.status(400).send({ error: 'github_repo must be in owner/repo format' })
+    }
+    const project = await db.insertProject(name.trim(), github_repo?.trim())
     return reply.status(201).send(enrichProject(project))
   })
 
@@ -45,6 +58,21 @@ export async function projectRoutes(app: FastifyInstance) {
     const project = await db.getProject(req.params.id)
     if (!project) return reply.status(404).send({ error: 'Not found' })
     return reply.send(enrichProject(project))
+  })
+
+  // PATCH /api/projects/:id
+  app.patch<{ Params: ProjectParams; Body: UpdateProjectBody }>('/projects/:id', async (req, reply) => {
+    const project = await db.getProject(req.params.id)
+    if (!project) return reply.status(404).send({ error: 'Not found' })
+    const { github_repo } = req.body ?? {}
+    if (github_repo !== undefined && github_repo !== null && !isValidGithubRepo(github_repo)) {
+      return reply.status(400).send({ error: 'github_repo must be in owner/repo format' })
+    }
+    if (github_repo !== undefined) {
+      await db.updateProjectGithubRepo(req.params.id, github_repo)
+    }
+    const updated = await db.getProject(req.params.id)
+    return reply.send(enrichProject(updated!))
   })
 
   // DELETE /api/projects/:id

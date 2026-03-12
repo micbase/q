@@ -30,6 +30,7 @@ export interface StreamEvent {
 export interface Project {
   id: string
   name: string
+  github_repo?: string
   status: ProjectStatus
   created_at: number
   updated_at: number

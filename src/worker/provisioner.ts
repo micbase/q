@@ -2,12 +2,26 @@ import { config } from '../config'
 import * as db from '../db/queries'
 import type { Project, ContainerStatus } from '../../shared/types'
 import { getDocker } from './docker'
+import { getInstallationToken, cloneRepoIfNeeded, setupGitCredentials } from './github'
 const LABEL_MANAGED = 'q.managed'
 
+const TOKEN_MAX_AGE_MS = 55 * 60 * 1000 // refresh credentials before 1h expiry
+
+interface ContainerEntry { id?: string; status: ContainerStatus; credentialsAt?: number }
+
 // In-memory map: projectId → container state
-const containers = new Map<string, { id?: string; status: ContainerStatus }>()
+const containers = new Map<string, ContainerEntry>()
 // Idle timers: projectId → timer handle
 const idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+async function refreshCredentials(entry: ContainerEntry, project: Project): Promise<void> {
+  if (!entry.id || !project.github_repo || !config.githubAppId) return
+  const age = Date.now() - (entry.credentialsAt ?? 0)
+  if (age < TOKEN_MAX_AGE_MS) return
+  const token = await getInstallationToken(project.github_repo)
+  await setupGitCredentials(entry.id, token)
+  entry.credentialsAt = Date.now()
+}
 
 export function getContainerStatus(projectId: string): ContainerStatus {
   return containers.get(projectId)?.status ?? 'stopped'
@@ -19,6 +33,7 @@ export async function ensureRunning(project: Project): Promise<string> {
   const existing = containers.get(project.id)
   if (existing?.id) {
     cancelIdleTimer(project.id)
+    await refreshCredentials(existing, project)
     return existing.id
   }
 
@@ -40,8 +55,13 @@ export async function ensureRunning(project: Project): Promise<string> {
 
   const info = await container.inspect()
   const id = info.Id
+  const entry: ContainerEntry = { id, status: 'running' }
+  await refreshCredentials(entry, project)
+  if (project.github_repo) {
+    await cloneRepoIfNeeded(id, project.github_repo)
+  }
 
-  containers.set(project.id, { id, status: 'running' })
+  containers.set(project.id, entry)
 
   console.log(`[provisioner] Container started for project ${project.name} (${id.slice(0, 12)})`)
 

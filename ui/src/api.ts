@@ -20,7 +20,7 @@ export const api = {
   getProject: (id: string): Promise<Project> =>
     request(`/projects/${id}`),
 
-  createProject: (body: { name: string }): Promise<Project> =>
+  createProject: (body: { name: string; github_repo: string }): Promise<Project> =>
     request('/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

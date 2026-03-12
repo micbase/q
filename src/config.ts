@@ -39,6 +39,8 @@ export const config = {
   projectsDir: required('PROJECTS_DIR'),
   projectImage: optional('PROJECT_IMAGE', 'q-project'),
   dryRun: optionalBool('DRY_RUN', false),
+  githubAppId: optional('GITHUB_APP_ID', ''),
+  githubPrivateKeyPath: optional('GITHUB_PRIVATE_KEY_PATH', ''),
 }
 
 // Wipe process.env so secrets can never leak to child processes.
@@ -60,4 +62,5 @@ export function validate(): void {
   console.log(`  Project image: ${config.projectImage}`)
   console.log(`  Dry run: ${config.dryRun}`)
   if (config.ntfyUrl) console.log(`  ntfy: ${config.ntfyUrl}`)
+  if (config.githubAppId) console.log(`  GitHub App: ${config.githubAppId}`)
 }

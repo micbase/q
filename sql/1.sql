@@ -8,6 +8,7 @@ CREATE TYPE message_role AS ENUM ('user', 'assistant', 'system');
 CREATE TABLE IF NOT EXISTS projects (
   id           VARCHAR(21)      NOT NULL PRIMARY KEY,
   name         VARCHAR(255)     NOT NULL,
+  github_repo  VARCHAR(255),
   status       project_status   NOT NULL DEFAULT 'active',
   created_at   BIGINT           NOT NULL,
   updated_at   BIGINT           NOT NULL

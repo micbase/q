@@ -33,9 +33,16 @@
             placeholder="my-project"
             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <input
+            v-model="newProject.github_repo"
+            type="text"
+            required
+            placeholder="owner/repo"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
           <button
             type="button"
-            :disabled="creatingProject || !newProject.name"
+            :disabled="creatingProject || !newProject.name || !newProject.github_repo"
             @click="createProject"
             class="self-end bg-blue-600 text-white px-3 py-2 rounded-lg text-base hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >{{ creatingProject ? '...' : 'Create' }}</button>
@@ -114,7 +121,7 @@ const router = useRouter()
 
 const projects = ref<Project[]>([])
 const showNewProject = ref(false)
-const newProject = ref({ name: '' })
+const newProject = ref({ name: '', github_repo: '' })
 const newProjectError = ref('')
 const creatingProject = ref(false)
 
@@ -142,11 +149,12 @@ async function createProject() {
   try {
     const project = await api.createProject({
       name: newProject.value.name.trim(),
+      github_repo: newProject.value.github_repo.trim(),
     })
     projects.value = await api.listProjects()
     form.value.project_id = project.id
     showNewProject.value = false
-    newProject.value = { name: '' }
+    newProject.value = { name: '', github_repo: '' }
   } catch (err) {
     newProjectError.value = err instanceof Error ? err.message : 'Failed to create project'
   } finally {

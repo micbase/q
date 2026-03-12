@@ -29,14 +29,21 @@ export async function getProjectByName(name: string, q: DB = defaultDB): Promise
   return rows.length ? mapProject(rows[0]) : null
 }
 
-export async function insertProject(name: string, q: DB = defaultDB): Promise<Project> {
+export async function insertProject(name: string, githubRepo?: string, q: DB = defaultDB): Promise<Project> {
   const id = nanoid()
   const ts = now()
   await q.query(
-    'INSERT INTO projects (id, name, created_at, updated_at) VALUES ($1, $2, $3, $4)',
-    [id, name, ts, ts]
+    'INSERT INTO projects (id, name, github_repo, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)',
+    [id, name, githubRepo ?? null, ts, ts]
   )
   return (await getProject(id, q))!
+}
+
+export async function updateProjectGithubRepo(id: string, githubRepo: string | null, q: DB = defaultDB): Promise<void> {
+  await q.query(
+    'UPDATE projects SET github_repo = $1, updated_at = $2 WHERE id = $3',
+    [githubRepo, now(), id]
+  )
 }
 
 export async function countActiveTicketsForProject(projectId: string, q: DB = defaultDB): Promise<number> {
@@ -216,6 +223,7 @@ function mapProject(row: any): Project {
   return {
     id: row.id,
     name: row.name,
+    github_repo: row.github_repo ?? undefined,
     status: row.status,
     created_at: Number(row.created_at),
     updated_at: Number(row.updated_at),
