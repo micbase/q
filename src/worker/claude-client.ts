@@ -177,7 +177,7 @@ function* mapCLIEvent(event: CLIEvent): Generator<ClaudeEvent> {
         yield { type: 'text', content: block.text }
       } else if (block.type === 'tool_use') {
         const detail = block.input ? JSON.stringify(block.input, null, 2) : ''
-        yield { type: 'tool_use', tool_name: block.name ?? 'unknown', content: detail }
+        yield { type: 'tool_use', tool_name: block.name ?? 'unknown', tool_use_id: block.id as string, content: detail }
       } else if (block.type === 'tool_result') {
         const content = typeof block.content === 'string'
           ? block.content
@@ -187,7 +187,7 @@ function* mapCLIEvent(event: CLIEvent): Generator<ClaudeEvent> {
                 .join('\n')
             : JSON.stringify(block.content ?? '')
         if (content) {
-          yield { type: 'tool_result', content, is_error: block.is_error === true || undefined }
+          yield { type: 'tool_result', content, tool_use_id: block.tool_use_id as string, is_error: block.is_error === true || undefined }
         }
       }
     }

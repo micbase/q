@@ -127,6 +127,7 @@ interface DisplayMsg {
   content: string
   role?: string
   tool_name?: string
+  tool_use_id?: string
   is_error?: boolean
 }
 
@@ -157,24 +158,25 @@ const inputDisabled = computed(() => sending.value || ticketStatus.value === 'ru
 const grouped = computed<GroupedMsg[]>(() => {
   const out: GroupedMsg[] = []
   const msgs = messages.value
-  let i = 0
-  while (i < msgs.length) {
+  // Index tool_results by tool_use_id for matching
+  const resultsByUseId = new Map<string, DisplayMsg>()
+  const matchedResults = new Set<number>()
+  for (let i = 0; i < msgs.length; i++) {
+    if (msgs[i].message_type === 'tool_result' && msgs[i].tool_use_id) {
+      resultsByUseId.set(msgs[i].tool_use_id!, msgs[i])
+      matchedResults.add(i)
+    }
+  }
+  for (let i = 0; i < msgs.length; i++) {
     if (msgs[i].message_type === 'tool_use') {
-      const pair: GroupedMsg = { kind: 'tool_pair', use: msgs[i], idx: i }
-      if (i + 1 < msgs.length && msgs[i + 1].message_type === 'tool_result') {
-        pair.result = msgs[i + 1]
-        i += 2
-      } else {
-        i++
-      }
-      out.push(pair)
+      const result = msgs[i].tool_use_id ? resultsByUseId.get(msgs[i].tool_use_id!) : undefined
+      out.push({ kind: 'tool_pair', use: msgs[i], result, idx: i })
     } else if (msgs[i].message_type === 'tool_result') {
-      // orphaned result (no preceding tool_use)
-      out.push({ kind: 'tool_pair', result: msgs[i], idx: i })
-      i++
+      if (!matchedResults.has(i)) {
+        out.push({ kind: 'tool_pair', result: msgs[i], idx: i })
+      }
     } else {
       out.push({ kind: 'msg', msg: msgs[i], idx: i })
-      i++
     }
   }
   return out
@@ -255,6 +257,7 @@ function handleEvent(event: StreamEvent) {
       content: event.content ?? '',
       role: event.role,
       tool_name: event.tool_name,
+      tool_use_id: event.tool_use_id,
       is_error: event.is_error,
     })
     if (event.message_type === 'tool_use' || event.message_type === 'tool_result') {
