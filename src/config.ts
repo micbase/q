@@ -41,6 +41,8 @@ export const config = {
   dryRun: optionalBool('DRY_RUN', false),
   githubAppId: optional('GITHUB_APP_ID', ''),
   githubPrivateKey: optional('GITHUB_PRIVATE_KEY', '').replace(/\\n/g, '\n'),
+  githubCommitName: optional('GITHUB_COMMIT_NAME', 'q'),
+  githubCommitEmail: optional('GITHUB_COMMIT_EMAIL', 'q@noreply'),
 }
 
 // Wipe process.env so secrets can never leak to child processes.

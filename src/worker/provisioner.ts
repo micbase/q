@@ -2,7 +2,7 @@ import { config } from '../config'
 import * as db from '../db/queries'
 import type { Project, ContainerStatus } from '../../shared/types'
 import { getDocker } from './docker'
-import { getInstallationToken, cloneRepoIfNeeded, setupGitCredentials } from './github'
+import { getInstallationToken, cloneRepoIfNeeded, setupGitCredentials, setupGitIdentity } from './github'
 const LABEL_MANAGED = 'q.managed'
 
 const TOKEN_MAX_AGE_MS = 55 * 60 * 1000 // refresh credentials before 1h expiry
@@ -55,6 +55,9 @@ export async function ensureRunning(project: Project): Promise<string> {
 
   const info = await container.inspect()
   const id = info.Id
+
+  await setupGitIdentity(id)
+
   const entry: ContainerEntry = { id, status: 'running' }
   await refreshCredentials(entry, project)
   if (project.github_repo) {

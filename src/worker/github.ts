@@ -86,6 +86,13 @@ export async function cloneRepoIfNeeded(containerId: string, repo: string): Prom
   console.log(`[github] Cloned ${repo} into /workspace in container ${containerId.slice(0, 12)}`)
 }
 
+/** Configure git user.name and user.email in a running container */
+export async function setupGitIdentity(containerId: string): Promise<void> {
+  await execInContainer(containerId, ['git', 'config', '--global', 'user.name', config.githubCommitName])
+  await execInContainer(containerId, ['git', 'config', '--global', 'user.email', config.githubCommitEmail])
+  console.log(`[github] Git identity configured in container ${containerId.slice(0, 12)}`)
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function execInContainer(containerId: string, cmd: string[]): Promise<void> {
