@@ -1,16 +1,15 @@
 import crypto from 'crypto'
-import fs from 'fs'
 import { config } from '../config'
 import { getDocker } from './docker'
 
 // ─── JWT ─────────────────────────────────────────────────────────────────────
 
 function createAppJWT(): string {
-  if (!config.githubAppId || !config.githubPrivateKeyPath) {
-    throw new Error('GITHUB_APP_ID and GITHUB_PRIVATE_KEY_PATH are required')
+  if (!config.githubAppId || !config.githubPrivateKey) {
+    throw new Error('GITHUB_APP_ID and GITHUB_PRIVATE_KEY are required')
   }
 
-  const privateKey = fs.readFileSync(config.githubPrivateKeyPath, 'utf8')
+  const privateKey = config.githubPrivateKey
   const now = Math.floor(Date.now() / 1000)
 
   const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url')

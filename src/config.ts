@@ -40,7 +40,7 @@ export const config = {
   projectImage: optional('PROJECT_IMAGE', 'q-project'),
   dryRun: optionalBool('DRY_RUN', false),
   githubAppId: optional('GITHUB_APP_ID', ''),
-  githubPrivateKeyPath: optional('GITHUB_PRIVATE_KEY_PATH', ''),
+  githubPrivateKey: optional('GITHUB_PRIVATE_KEY', '').replace(/\\n/g, '\n'),
 }
 
 // Wipe process.env so secrets can never leak to child processes.
