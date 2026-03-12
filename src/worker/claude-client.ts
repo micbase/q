@@ -187,7 +187,7 @@ function* mapCLIEvent(event: CLIEvent): Generator<ClaudeEvent> {
                 .join('\n')
             : JSON.stringify(block.content ?? '')
         if (content) {
-          yield { type: 'tool_result', content }
+          yield { type: 'tool_result', content, is_error: block.is_error === true || undefined }
         }
       }
     }

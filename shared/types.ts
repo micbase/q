@@ -10,6 +10,7 @@ export interface ClaudeEvent {
   type: MessageType
   content: string
   tool_name?: string   // set for tool_use events
+  is_error?: boolean   // set for tool_result events
   session_id?: string
 }
 
@@ -22,6 +23,7 @@ export interface StreamEvent {
   content?: string
   message_type?: MessageType
   tool_name?: string   // set for tool_use events
+  is_error?: boolean   // set for tool_result events
   role?: 'user' | 'assistant' | 'system'
   ticket_status?: TicketStatus
   container_status?: ContainerStatus
@@ -58,6 +60,7 @@ export interface Message {
   content: string
   event_type: MessageType
   tool_name?: string
+  is_error?: boolean
   created_at: number
 }
 

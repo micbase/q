@@ -44,7 +44,7 @@
         <div v-else-if="g.kind === 'tool_pair'" class="flex justify-start">
           <div :class="[
             'border rounded-lg text-sm overflow-hidden max-w-full w-full',
-            g.result && isErrorResult(g.result.content) ? 'border-red-300' : 'border-gray-300'
+            g.result?.is_error ? 'border-red-300' : 'border-gray-300'
           ]">
             <!-- Tool use header -->
             <div
@@ -53,7 +53,7 @@
             >
               <span v-if="g.use?.tool_name && isExpandable(g.use.tool_name)" class="text-gray-400">{{ expanded.has(g.idx) ? '▼' : '▶' }}</span>
               <span class="font-semibold text-gray-700 truncate flex-1" v-if="g.use?.tool_name">{{ toolTitle(g.use.tool_name, g.use.content) }}</span>
-              <span v-if="g.result && isErrorResult(g.result.content)" class="text-red-500 text-xs font-medium ml-auto shrink-0">error</span>
+              <span v-if="g.result?.is_error" class="text-red-500 text-xs font-medium ml-auto shrink-0">error</span>
             </div>
 
             <!-- Expanded: tool input -->
@@ -63,7 +63,7 @@
             <!-- Expanded: tool result -->
             <div v-if="expanded.has(g.idx) && g.result && g.use?.tool_name && isExpandable(g.use.tool_name)" :class="[
               'px-3 py-2 font-mono text-xs whitespace-pre-wrap max-h-96 overflow-y-auto border-t border-gray-300',
-              isErrorResult(g.result.content) ? 'bg-red-50 text-red-800' : 'bg-gray-50 text-gray-700'
+              g.result.is_error ? 'bg-red-50 text-red-800' : 'bg-gray-50 text-gray-700'
             ]">{{ g.result.content }}</div>
           </div>
         </div>
@@ -127,6 +127,7 @@ interface DisplayMsg {
   content: string
   role?: string
   tool_name?: string
+  is_error?: boolean
 }
 
 interface GroupedMsg {
@@ -216,15 +217,6 @@ function isExpandable(name: string): boolean {
   return name !== 'Read'
 }
 
-function isErrorResult(content: string): boolean {
-  const lower = content.toLowerCase()
-  return /exit code [^0]/.test(lower)
-    || lower.includes('error')
-    || lower.includes('not found')
-    || lower.includes('failed')
-    || lower.includes('permission denied')
-}
-
 function toggleExpanded(i: number) {
   if (expanded.value.has(i)) {
     expanded.value.delete(i)
@@ -263,6 +255,7 @@ function handleEvent(event: StreamEvent) {
       content: event.content ?? '',
       role: event.role,
       tool_name: event.tool_name,
+      is_error: event.is_error,
     })
     if (event.message_type === 'tool_use' || event.message_type === 'tool_result') {
       expanded.value.add(idx)
