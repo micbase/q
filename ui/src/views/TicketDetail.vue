@@ -40,6 +40,20 @@
           </div>
         </div>
 
+        <!-- Thinking -->
+        <div v-else-if="g.kind === 'msg' && g.msg!.message_type === 'thinking'" class="flex justify-start">
+          <div class="border border-purple-200 rounded-lg text-sm overflow-hidden max-w-full w-full">
+            <div
+              @click="toggleExpanded(g.idx)"
+              class="flex items-center gap-2 px-3 py-1.5 w-full text-left bg-purple-50 cursor-pointer hover:bg-purple-100"
+            >
+              <span class="text-purple-400">{{ expanded.has(g.idx) ? '▼' : '▶' }}</span>
+              <span class="font-semibold text-purple-700 flex-1">Thinking</span>
+            </div>
+            <div v-if="expanded.has(g.idx)" class="px-3 py-2 text-sm text-purple-900 whitespace-pre-wrap max-h-96 overflow-y-auto bg-purple-50/50 border-t border-purple-200">{{ g.msg!.content }}</div>
+          </div>
+        </div>
+
         <!-- Tool call + result pair -->
         <div v-else-if="g.kind === 'tool_pair'" class="flex justify-start">
           <div :class="[
@@ -128,7 +142,11 @@ interface DisplayMsg {
   role?: string
   tool_name?: string
   tool_use_id?: string
+  tool_input?: string
+  tool_result_content?: string
+  tool_result_for_id?: string
   is_error?: boolean
+  parent_tool_use_id?: string
 }
 
 interface GroupedMsg {
@@ -158,12 +176,12 @@ const inputDisabled = computed(() => sending.value || ticketStatus.value === 'ru
 const grouped = computed<GroupedMsg[]>(() => {
   const out: GroupedMsg[] = []
   const msgs = messages.value
-  // Index tool_results by tool_use_id for matching
+  // Index tool_results by tool_result_for_id for matching
   const resultsByUseId = new Map<string, DisplayMsg>()
   const matchedResults = new Set<number>()
   for (let i = 0; i < msgs.length; i++) {
-    if (msgs[i].message_type === 'tool_result' && msgs[i].tool_use_id) {
-      resultsByUseId.set(msgs[i].tool_use_id!, msgs[i])
+    if (msgs[i].message_type === 'tool_result' && msgs[i].tool_result_for_id) {
+      resultsByUseId.set(msgs[i].tool_result_for_id!, msgs[i])
       matchedResults.add(i)
     }
   }
@@ -258,7 +276,11 @@ function handleEvent(event: StreamEvent) {
       role: event.role,
       tool_name: event.tool_name,
       tool_use_id: event.tool_use_id,
+      tool_input: event.tool_input,
+      tool_result_content: event.tool_result_content,
+      tool_result_for_id: event.tool_result_for_id,
       is_error: event.is_error,
+      parent_tool_use_id: event.parent_tool_use_id,
     })
     if (event.message_type === 'tool_use' || event.message_type === 'tool_result') {
       expanded.value.add(idx)

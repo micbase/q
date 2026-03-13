@@ -171,13 +171,24 @@ export async function* callClaude(
 function* mapCLIEvent(event: CLIEvent): Generator<ClaudeEvent> {
   if (event.type === 'assistant' || event.type === 'user') {
     const e = event as CLIMessageEvent
+    const role = event.type as 'assistant' | 'user'
     const blocks = Array.isArray(e.message.content) ? e.message.content : []
     for (const block of blocks) {
-      if (block.type === 'text' && block.text) {
-        yield { type: 'text', content: block.text }
+      if (block.type === 'thinking' && (block as any).thinking) {
+        yield { type: 'thinking', role, content: (block as any).thinking }
+      } else if (block.type === 'text' && block.text) {
+        yield { type: 'text', role, content: block.text }
       } else if (block.type === 'tool_use') {
-        const detail = block.input ? JSON.stringify(block.input, null, 2) : ''
-        yield { type: 'tool_use', tool_name: block.name ?? 'unknown', tool_use_id: block.id as string, content: detail }
+        const inputStr = block.input ? JSON.stringify(block.input, null, 2) : ''
+        yield {
+          type: 'tool_use',
+          role,
+          content: inputStr,
+          tool_name: block.name ?? 'unknown',
+          tool_use_id: block.id as string,
+          tool_input: inputStr,
+          parent_tool_use_id: block.parent_tool_use_id as string | undefined,
+        }
       } else if (block.type === 'tool_result') {
         const content = typeof block.content === 'string'
           ? block.content
@@ -187,7 +198,16 @@ function* mapCLIEvent(event: CLIEvent): Generator<ClaudeEvent> {
                 .join('\n')
             : JSON.stringify(block.content ?? '')
         if (content) {
-          yield { type: 'tool_result', content, tool_use_id: block.tool_use_id as string, is_error: block.is_error === true || undefined }
+          yield {
+            type: 'tool_result',
+            role,
+            content,
+            tool_use_id: block.tool_use_id as string,
+            tool_result_content: content,
+            tool_result_for_id: block.tool_use_id as string,
+            is_error: block.is_error === true || undefined,
+            parent_tool_use_id: block.parent_tool_use_id as string | undefined,
+          }
         }
       }
     }
@@ -195,9 +215,9 @@ function* mapCLIEvent(event: CLIEvent): Generator<ClaudeEvent> {
     const e = event as CLIResultEvent
     if (e.subtype === 'success') {
       const type: MessageType = isQuestion(e.result) ? 'paused' : 'done'
-      yield { type, content: e.result, session_id: e.session_id }
+      yield { type, role: 'assistant', content: e.result, claude_session_id: e.session_id }
     } else {
-      yield { type: 'error', content: `Session ended: ${e.subtype}`, session_id: e.session_id }
+      yield { type: 'error', role: 'assistant', content: `Session ended: ${e.subtype}`, claude_session_id: e.session_id }
     }
   } else if (event.type !== 'system') {
     console.log(`[claude-client] unhandled event type: ${event.type} ${JSON.stringify(event).slice(0, 300)}`)

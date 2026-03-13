@@ -30,8 +30,14 @@ export async function streamRoutes(app: FastifyInstance) {
         type: 'NewMessage',
         ticket_id: id,
         content: msg.content,
-        message_type: msg.event_type,
+        message_type: msg.type,
         tool_name: msg.tool_name,
+        tool_use_id: msg.tool_use_id,
+        tool_input: msg.tool_input,
+        tool_result_content: msg.tool_result_content,
+        tool_result_for_id: msg.tool_result_for_id,
+        is_error: msg.is_error,
+        parent_tool_use_id: msg.parent_tool_use_id,
         role: msg.role,
       }
       try {

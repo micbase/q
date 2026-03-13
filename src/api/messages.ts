@@ -34,7 +34,7 @@ export async function messageRoutes(app: FastifyInstance) {
         reply.status(409).send({ error: 'Ticket is not paused or done' }); return
       }
 
-      await emitMessage(req.params.id, content, 'text', 'user', undefined, undefined, undefined, tx)
+      await emitMessage(req.params.id, content, 'text', 'user', {}, tx)
       await emitTicketStatusChange(req.params.id, 'queued', undefined, tx)
     })
 

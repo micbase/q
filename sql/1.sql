@@ -23,7 +23,6 @@ CREATE TABLE IF NOT EXISTS tickets (
   -- 1=Critical 2=High 3=Normal 4=Low 5=Whenever
   status       ticket_status    NOT NULL DEFAULT 'queued',
   error        TEXT,
-  session_id   VARCHAR(255)     DEFAULT NULL,
   created_at   BIGINT           NOT NULL,  -- unix ms
   updated_at   BIGINT           NOT NULL,
   started_at   BIGINT,
@@ -38,11 +37,16 @@ CREATE TABLE IF NOT EXISTS messages (
   ticket_id    VARCHAR(21)      NOT NULL,
   role         message_role     NOT NULL,
   content      TEXT             NOT NULL,
-  event_type   VARCHAR(64)      NOT NULL,
-  -- 'text' | 'tool_use' | 'tool_result' | 'done' | 'paused' | 'error'
+  type         VARCHAR(64)      NOT NULL,
+  -- 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'done' | 'paused' | 'error'
   tool_name    VARCHAR(64),
   tool_use_id  VARCHAR(64),
+  tool_input         TEXT,
+  tool_result_content TEXT,
+  tool_result_for_id  VARCHAR(64),
   is_error     BOOLEAN          NOT NULL DEFAULT false,
+  parent_tool_use_id  VARCHAR(64),
+  claude_session_id   VARCHAR(255),
   created_at   BIGINT           NOT NULL,
   FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
 );

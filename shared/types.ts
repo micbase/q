@@ -3,33 +3,36 @@ export type ProjectStatus = 'active' | 'archived' | 'deleted'
 export type ContainerStatus = 'stopped' | 'starting' | 'running'
 
 // Message classification stored in DB
-export type MessageType = 'text' | 'tool_use' | 'tool_result' | 'done' | 'paused' | 'error'
+export type MessageType = 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'done' | 'paused' | 'error'
+
+// Shared tool-related fields across ClaudeEvent, StreamEvent, and Message
+export interface ToolFields {
+  tool_name?: string          // set for tool_use events
+  tool_use_id?: string        // set for tool_use and tool_result events
+  tool_input?: string         // set for tool_use events (JSON stringified input)
+  tool_result_content?: string // set for tool_result events (raw result text)
+  tool_result_for_id?: string // set for tool_result events (which tool_use this is a result for)
+  is_error?: boolean          // set for tool_result events
+  parent_tool_use_id?: string // set when tool was invoked inside another tool (e.g. Agent subagent)
+}
 
 // Internal event yielded by claude-client / dry-run session
-export interface ClaudeEvent {
+export interface ClaudeEvent extends ToolFields {
   type: MessageType
+  role: 'user' | 'assistant' | 'system'
   content: string
-  tool_name?: string   // set for tool_use events
-  tool_use_id?: string // set for tool_use and tool_result events
-  is_error?: boolean   // set for tool_result events
-  session_id?: string
+  claude_session_id?: string
 }
 
 // SSE event sent to frontend
 export type StreamEventType = 'TicketStatusChange' | 'ContainerStatusChange' | 'NewMessage'
 
-export interface StreamEvent {
+export interface StreamEvent extends Partial<Omit<ClaudeEvent, 'type'>> {
   type: StreamEventType
   ticket_id: string
-  content?: string
   message_type?: MessageType
-  tool_name?: string   // set for tool_use events
-  tool_use_id?: string // set for tool_use and tool_result events
-  is_error?: boolean   // set for tool_result events
-  role?: 'user' | 'assistant' | 'system'
   ticket_status?: TicketStatus
   container_status?: ContainerStatus
-  session_id?: string
 }
 export interface Project {
   id: string
@@ -48,22 +51,15 @@ export interface Ticket {
   priority: number        // 1-5
   status: TicketStatus
   error?: string
-  session_id?: string
   created_at: number      // unix ms
   updated_at: number
   started_at?: number
   completed_at?: number
 }
 
-export interface Message {
+export interface Message extends ClaudeEvent {
   id: string
   ticket_id: string
-  role: 'user' | 'assistant' | 'system'
-  content: string
-  event_type: MessageType
-  tool_name?: string
-  tool_use_id?: string
-  is_error?: boolean
   created_at: number
 }
 
