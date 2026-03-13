@@ -282,7 +282,7 @@ function handleEvent(event: StreamEvent) {
       is_error: event.is_error,
       parent_tool_use_id: event.parent_tool_use_id,
     })
-    if (event.message_type === 'tool_use' || event.message_type === 'tool_result') {
+    if (event.message_type === 'thinking' || event.message_type === 'tool_use' || event.message_type === 'tool_result') {
       expanded.value.add(idx)
     }
     scrollToBottom()
