@@ -35,18 +35,22 @@ CREATE INDEX idx_status_priority ON tickets (status, priority, created_at);
 CREATE TABLE IF NOT EXISTS messages (
   id           VARCHAR(21)      NOT NULL PRIMARY KEY,
   ticket_id    VARCHAR(21)      NOT NULL,
-  role         message_role     NOT NULL,
-  content      TEXT             NOT NULL,
+  claude_session_id   VARCHAR(255),
   type         VARCHAR(64)      NOT NULL,
   -- 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'done' | 'paused' | 'error'
-  tool_name    VARCHAR(64),
+
+  role         message_role     NOT NULL,
+  content      TEXT             NOT NULL,
+
   tool_use_id  VARCHAR(64),
+  tool_name    VARCHAR(64),
   tool_input         TEXT,
+
   tool_result_content TEXT,
   tool_result_for_id  VARCHAR(64),
+
   is_error     BOOLEAN          NOT NULL DEFAULT false,
   parent_tool_use_id  VARCHAR(64),
-  claude_session_id   VARCHAR(255),
   created_at   BIGINT           NOT NULL,
   FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
 );
