@@ -70,8 +70,18 @@
               <span v-if="g.result?.is_error" class="text-red-500 text-xs font-medium ml-auto shrink-0">error</span>
             </div>
 
+            <!-- TodoWrite: checkbox list (always shown, not expandable) -->
+            <template v-if="g.use?.tool_name === 'TodoWrite' && todoItems(g.use.content)">
+              <div class="px-3 py-2 space-y-1 bg-white">
+                <div v-for="todo in todoItems(g.use.content)" :key="todo.id" class="flex items-start gap-2 text-sm" :class="todo.status === 'in_progress' ? 'bg-amber-50 -mx-3 px-3 py-0.5 border-l-2 border-amber-400' : ''">
+                  <span class="mt-0.5 shrink-0">{{ todo.status === 'completed' ? '☑' : '☐' }}</span>
+                  <span :class="[todo.status === 'completed' ? 'text-gray-400 line-through' : 'text-gray-800', todo.status === 'in_progress' ? 'font-medium' : '']">{{ todo.content }}</span>
+                </div>
+              </div>
+            </template>
+
             <!-- Expanded: Edit diff -->
-            <template v-if="expanded.has(g.idx) && g.use?.tool_name === 'Edit' && editInput(g.use.content)">
+            <template v-else-if="expanded.has(g.idx) && g.use?.tool_name === 'Edit' && editInput(g.use.content)">
               <EditDiff
                 :old-string="editInput(g.use.content)!.old_string"
                 :new-string="editInput(g.use.content)!.new_string"
@@ -198,8 +208,23 @@ const grouped = computed<GroupedMsg[]>(() => {
       matchedResults.add(i)
     }
   }
+  // Find the last TodoWrite tool_use index so we can skip earlier ones
+  let lastTodoIdx = -1
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    if (msgs[i].message_type === 'tool_use' && msgs[i].tool_name === 'TodoWrite') {
+      lastTodoIdx = i
+      break
+    }
+  }
   for (let i = 0; i < msgs.length; i++) {
     if (msgs[i].message_type === 'tool_use') {
+      // Skip non-last TodoWrite calls and their results
+      if (msgs[i].tool_name === 'TodoWrite' && i !== lastTodoIdx) {
+        if (msgs[i].tool_use_id) matchedResults.add(
+          msgs.findIndex(m => m.tool_result_for_id === msgs[i].tool_use_id)
+        )
+        continue
+      }
       const result = msgs[i].tool_use_id ? resultsByUseId.get(msgs[i].tool_use_id!) : undefined
       out.push({ kind: 'tool_pair', use: msgs[i], result, idx: i })
     } else if (msgs[i].message_type === 'tool_result') {
@@ -228,6 +253,10 @@ function toolTitle(name: string, content: string): string {
   if (!content) return name
   try {
     const json = JSON.parse(content)
+    if (name === 'TodoWrite' && Array.isArray(json.todos)) {
+      const done = json.todos.filter((t: { status: string }) => t.status === 'completed').length
+      return `Tasks (${done}/${json.todos.length})`
+    }
     if (json.file_path) return `${name}: ${json.file_path}`
     if (json.description) return `${name}: ${json.description}`
     if (json.command) return `${name}: ${json.command}`
@@ -255,8 +284,17 @@ function editInput(content: string): { file_path: string; old_string: string; ne
   return null
 }
 
+function todoItems(content: string): { id: string; content: string; status: string }[] | null {
+  if (!content) return null
+  try {
+    const json = JSON.parse(content)
+    if (Array.isArray(json.todos) && json.todos.length > 0) return json.todos
+  } catch { /* not JSON */ }
+  return null
+}
+
 function isExpandable(name: string): boolean {
-  return name !== 'Read'
+  return name !== 'Read' && name !== 'TodoWrite'
 }
 
 function toggleExpanded(i: number) {
