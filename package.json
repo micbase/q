@@ -2,10 +2,10 @@
   "name": "q",
   "version": "1.0.0",
   "description": "Async task queue for Claude Code",
-  "main": "dist/main.js",
+  "main": "dist/src/main.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/main.js",
+    "start": "node dist/src/main.js",
     "dev": "tsx watch src/main.ts"
   },
   "dependencies": {

@@ -43,4 +43,4 @@ ENV DRY_RUN=false
 
 EXPOSE 3200
 
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]
