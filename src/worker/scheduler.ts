@@ -18,7 +18,7 @@ function sleep(ms: number): Promise<void> {
 function isQuotaError(err: unknown): boolean {
   const msg = String(err).toLowerCase()
   return msg.includes('rate_limit') || msg.includes('429') ||
-         msg.includes('quota') || msg.includes('overloaded')
+    msg.includes('quota') || msg.includes('overloaded')
 }
 
 function parseResetDelay(err: unknown): number | null {
@@ -94,11 +94,22 @@ class Scheduler {
         const project = await db.getProject(ticket.project_id)
         if (!project) throw new Error(`Project ${ticket.project_id} not found`)
         containerId = await provisioner.ensureRunning(project, ticket.id)
-        const workDir = project.github_repo
-          ? await ensureWorktree(containerId, ticket.id)
-          : undefined
+        let workDir: string | undefined
+        if (project.github_repo) {
+          try {
+            workDir = await ensureWorktree(containerId, ticket.id)
+          } catch (err) {
+            console.error(`[scheduler] Failed to create worktree for ${ticket.id}:`, err)
+            throw err
+          }
+        }
         if (project.dev_command) {
-          await runDevCommand(containerId, project.dev_command, workDir ?? '/workspace')
+          try {
+            await runDevCommand(containerId, project.dev_command, workDir ?? '/workspace')
+          } catch (err) {
+            console.error(`[scheduler] Failed to start dev server for ${ticket.id}:`, err)
+            throw err
+          }
         }
         eventSource = callClaude(containerId, prompt, sessionId ?? undefined, workDir)
       }

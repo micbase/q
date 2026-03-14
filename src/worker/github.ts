@@ -139,7 +139,8 @@ export async function ensureWorktree(containerId: string, ticketId: string): Pro
     ])
     await execInContainer(containerId, [
       'git', '-C', '/workspace', 'worktree', 'add', wt, branch,
-    ]).catch(async () => {
+    ]).catch(async (err) => {
+      console.warn(`[github] worktree add failed, retrying with branch reset:`, err.message ?? err)
       // Branch may exist locally but worktree was removed — reset it
       await execInContainer(containerId, [
         'git', '-C', '/workspace', 'branch', '-D', branch,
@@ -185,6 +186,7 @@ async function execInContainer(containerId: string, cmd: string[]): Promise<void
 }
 
 async function execInContainerOutput(containerId: string, cmd: string[]): Promise<string> {
+  console.log(`[exec] ${containerId.slice(0, 12)} ${cmd.join(' ')}`)
   const exec = await getDocker().getContainer(containerId).exec({
     Cmd: cmd,
     AttachStdout: true,
@@ -198,16 +200,25 @@ async function execInContainerOutput(containerId: string, cmd: string[]): Promis
   getDocker().modem.demuxStream(stream, stdout, stderr)
   stream.on('end', () => { stdout.end(); stderr.end() })
 
-  const chunks: Buffer[] = []
-  await new Promise<void>((resolve, reject) => {
-    stdout.on('data', (chunk: Buffer) => chunks.push(chunk))
-    stdout.on('end', resolve)
-    stdout.on('error', reject)
-  })
+  const stdoutChunks: Buffer[] = []
+  const stderrChunks: Buffer[] = []
+  await Promise.all([
+    new Promise<void>((resolve, reject) => {
+      stdout.on('data', (chunk: Buffer) => stdoutChunks.push(chunk))
+      stdout.on('end', resolve)
+      stdout.on('error', reject)
+    }),
+    new Promise<void>((resolve, reject) => {
+      stderr.on('data', (chunk: Buffer) => stderrChunks.push(chunk))
+      stderr.on('end', resolve)
+      stderr.on('error', reject)
+    }),
+  ])
 
   const { ExitCode } = await exec.inspect()
   if (ExitCode !== 0) {
-    throw new Error(`exec failed (exit ${ExitCode}): ${cmd.join(' ')}`)
+    const errOutput = Buffer.concat(stderrChunks).toString().trim()
+    throw new Error(`exec failed (exit ${ExitCode}): ${cmd.join(' ')}${errOutput ? `\n${errOutput}` : ''}`)
   }
-  return Buffer.concat(chunks).toString()
+  return Buffer.concat(stdoutChunks).toString()
 }
