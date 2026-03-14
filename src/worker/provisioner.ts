@@ -1,7 +1,7 @@
 import { config } from '../config'
 import * as db from '../db/queries'
 import type { Project, ContainerStatus } from '../../shared/types'
-import { getDocker } from './docker'
+import { getDocker, execInContainer } from './docker'
 import { broker } from '../broker/broker'
 import { getInstallationToken, cloneRepoIfNeeded, setupGitCredentials, setupGitIdentity } from './github'
 const LABEL_MANAGED = 'q.managed'
@@ -81,6 +81,9 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
   const info = await container.inspect()
   const id = info.Id
   const logTag = `${project.name} ${ticketId} ${id.slice(0, 12)}`
+
+  // Bind-mounted dirs are owned by host UID — chown so claude user can write
+  await execInContainer(id, ['chown', '-R', 'claude:claude', '/workspace', '/home/claude/.claude'], logTag)
 
   await setupGitIdentity(id, logTag)
 

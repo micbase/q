@@ -13,6 +13,7 @@ export function getDocker(): Docker {
 export interface ExecOptions {
   WorkingDir?: string
   Env?: string[]
+  User?: string
 }
 
 /** Run a command in a container, wait for completion, return stdout as string. Throws on non-zero exit. */
@@ -22,6 +23,7 @@ export async function execInContainer(containerId: string, cmd: string[], logTag
     Cmd: cmd,
     AttachStdout: true,
     AttachStderr: true,
+    User: 'root',
     ...opts,
   })
   const stream = await exec.start({})
@@ -68,6 +70,7 @@ export async function execInteractive(containerId: string, cmd: string[], opts?:
     AttachStdin: true,
     AttachStdout: true,
     AttachStderr: true,
+    User: 'root',
     ...opts,
   })
   const duplex = await exec.start({ hijack: true, stdin: true })

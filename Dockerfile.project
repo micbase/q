@@ -12,10 +12,9 @@ RUN GOBIN=/usr/local/bin go install github.com/air-verse/air@latest
 
 RUN npm install -g @anthropic-ai/claude-code
 
-RUN useradd -m -s /bin/bash claude \
-    && mkdir -p /workspace && chown claude:claude /workspace
+RUN useradd -m -s /bin/bash -u 1000 claude \
+    && mkdir -p /workspace
 
-USER claude
 WORKDIR /workspace
 
 CMD ["sleep", "infinity"]
