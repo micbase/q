@@ -4,7 +4,7 @@
     <header class="bg-white border-b border-gray-200 px-4 py-2.5 flex items-center gap-3 shrink-0">
       <span class="font-bold text-lg tracking-tight">Q</span>
       <span
-        v-if="status?.running_ticket"
+        v-if="status?.running_ticket_ids?.length"
         class="text-yellow-500 animate-pulse"
         title="Processing"
       >⚡</span>

@@ -1,16 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import * as db from '../db/queries'
 import { withTransaction } from '../db/connection'
-import type { Project } from '../../shared/types'
-import { getContainerStatus } from '../worker/provisioner'
-
-function enrichProject(project: Project) {
-  return { ...project, container_status: getContainerStatus(project.id) }
-}
-
-function isValidGithubRepo(value: unknown): boolean {
-  return typeof value === 'string' && /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/.test(value)
-}
 
 interface CreateProjectBody {
   name: string
@@ -27,11 +17,15 @@ interface ProjectParams {
   id: string
 }
 
+function isValidGithubRepo(value: unknown): boolean {
+  return typeof value === 'string' && /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/.test(value)
+}
+
 export async function projectRoutes(app: FastifyInstance) {
   // GET /api/projects
   app.get('/projects', async (_req, reply) => {
     const projects = await db.listProjects()
-    return reply.send(projects.map(enrichProject))
+    return reply.send(projects)
   })
 
   // POST /api/projects
@@ -52,14 +46,14 @@ export async function projectRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'github_repo must be in owner/repo format' })
     }
     const project = await db.insertProject(name.trim(), github_repo?.trim(), dev_command?.trim() || undefined)
-    return reply.status(201).send(enrichProject(project))
+    return reply.status(201).send(project)
   })
 
   // GET /api/projects/:id
   app.get<{ Params: ProjectParams }>('/projects/:id', async (req, reply) => {
     const project = await db.getProject(req.params.id)
     if (!project) return reply.status(404).send({ error: 'Not found' })
-    return reply.send(enrichProject(project))
+    return reply.send(project)
   })
 
   // PATCH /api/projects/:id
@@ -77,16 +71,16 @@ export async function projectRoutes(app: FastifyInstance) {
       await db.updateProjectDevCommand(req.params.id, dev_command || null)
     }
     const updated = await db.getProject(req.params.id)
-    return reply.send(enrichProject(updated!))
+    return reply.send(updated!)
   })
 
   // DELETE /api/projects/:id
   app.delete<{ Params: ProjectParams }>('/projects/:id', async (req, reply) => {
     const project = await db.getProject(req.params.id)
     if (!project) return reply.status(404).send({ error: 'Not found' })
-    const containerStatus = getContainerStatus(project.id)
-    if (containerStatus === 'running' || containerStatus === 'starting') {
-      return reply.status(409).send({ error: 'Cannot delete a project with a running container' })
+    const active = await db.countActiveTicketsForProject(project.id)
+    if (active > 0) {
+      return reply.status(409).send({ error: 'Cannot delete project with active tickets' })
     }
     try {
       await withTransaction(async (tx) => {

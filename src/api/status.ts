@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { config } from '../config'
 import * as db from '../db/queries'
-import { getCurrentTicketId } from '../worker/scheduler'
+import { getRunningTicketIds } from '../worker/scheduler'
 
 export async function statusRoutes(app: FastifyInstance) {
   // GET /api/status
@@ -11,7 +11,7 @@ export async function statusRoutes(app: FastifyInstance) {
       db.countPausedTickets(),
     ])
     return reply.send({
-      running_ticket: getCurrentTicketId(),
+      running_ticket_ids: getRunningTicketIds(),
       queue_depth,
       paused_count,
       dry_run: config.dryRun,

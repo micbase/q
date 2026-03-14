@@ -38,6 +38,7 @@ export const config = {
   containerIdleTimeoutMs: optionalInt('CONTAINER_IDLE_TIMEOUT_MS', 600_000),
   projectsDir: required('PROJECTS_DIR'),
   projectImage: optional('PROJECT_IMAGE', 'q-project'),
+  maxConcurrentTickets: optionalInt('MAX_CONCURRENT_TICKETS', 2),
   dryRun: optionalBool('DRY_RUN', false),
   githubAppId: optional('GITHUB_APP_ID', ''),
   githubPrivateKey: optional('GITHUB_PRIVATE_KEY', '').replace(/\\n/g, '\n'),

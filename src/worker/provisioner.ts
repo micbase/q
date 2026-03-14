@@ -2,20 +2,26 @@ import { config } from '../config'
 import * as db from '../db/queries'
 import type { Project, ContainerStatus } from '../../shared/types'
 import { getDocker } from './docker'
+import { broker } from '../broker/broker'
 import { getInstallationToken, cloneRepoIfNeeded, setupGitCredentials, setupGitIdentity } from './github'
 const LABEL_MANAGED = 'q.managed'
 
 const TOKEN_MAX_AGE_MS = 55 * 60 * 1000 // refresh credentials before 1h expiry
 
-interface ContainerEntry { id?: string; status: ContainerStatus; credentialsAt?: number }
+interface ContainerEntry { id: string; credentialsAt?: number }
 
-// In-memory map: projectId → container state
+// In-memory map: ticketId → docker container id + credential age (not status — status lives in DB)
 const containers = new Map<string, ContainerEntry>()
-// Idle timers: projectId → timer handle
+// Idle timers: ticketId → timer handle
 const idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
+async function setContainerStatus(ticketId: string, status: ContainerStatus): Promise<void> {
+  await db.updateTicketContainerStatus(ticketId, status)
+  broker.publish({ type: 'ContainerStatusChange', ticket_id: ticketId, container_status: status })
+}
+
 async function refreshCredentials(entry: ContainerEntry, project: Project): Promise<void> {
-  if (!entry.id || !project.github_repo || !config.githubAppId) return
+  if (!project.github_repo || !config.githubAppId) return
   const age = Date.now() - (entry.credentialsAt ?? 0)
   if (age < TOKEN_MAX_AGE_MS) return
   const token = await getInstallationToken(project.github_repo)
@@ -23,22 +29,18 @@ async function refreshCredentials(entry: ContainerEntry, project: Project): Prom
   entry.credentialsAt = Date.now()
 }
 
-export function getContainerStatus(projectId: string): ContainerStatus {
-  return containers.get(projectId)?.status ?? 'stopped'
-}
-
 // ─── Ensure running ───────────────────────────────────────────────────────────
 
-export async function ensureRunning(project: Project): Promise<string> {
-  const existing = containers.get(project.id)
-  if (existing?.id) {
-    cancelIdleTimer(project.id)
+export async function ensureRunning(project: Project, ticketId: string): Promise<string> {
+  const existing = containers.get(ticketId)
+  if (existing) {
+    cancelIdleTimer(ticketId)
     await refreshCredentials(existing, project)
     return existing.id
   }
 
-  console.log(`[provisioner] Starting container for project ${project.name}`)
-  containers.set(project.id, { status: 'starting' })
+  console.log(`[provisioner] Starting container for ticket ${ticketId} (project ${project.name})`)
+  await setContainerStatus(ticketId, 'starting')
 
   const container = await getDocker().createContainer({
     Image: config.projectImage,
@@ -46,7 +48,7 @@ export async function ensureRunning(project: Project): Promise<string> {
     HostConfig: {
       Binds: [
         `${config.projectsDir}/${project.name}:/workspace`,
-        `${config.projectsDir}/.claude-sessions/${project.name}:/home/claude/.claude`,
+        `${config.projectsDir}/.claude-sessions/${ticketId}:/home/claude/.claude`,
       ],
     },
   })
@@ -58,55 +60,53 @@ export async function ensureRunning(project: Project): Promise<string> {
 
   await setupGitIdentity(id)
 
-  const entry: ContainerEntry = { id, status: 'running' }
+  const entry: ContainerEntry = { id }
   await refreshCredentials(entry, project)
   if (project.github_repo) {
     await cloneRepoIfNeeded(id, project.github_repo)
   }
 
-  containers.set(project.id, entry)
+  containers.set(ticketId, entry)
+  await setContainerStatus(ticketId, 'running')
 
-  console.log(`[provisioner] Container started for project ${project.name} (${id.slice(0, 12)})`)
+  console.log(`[provisioner] Container started for ticket ${ticketId} (${id.slice(0, 12)})`)
 
   return id
 }
 
 // ─── Idle shutdown ────────────────────────────────────────────────────────────
 
-export function scheduleIdleStop(projectId: string): void {
-  cancelIdleTimer(projectId)
+export function scheduleIdleStop(ticketId: string): void {
+  cancelIdleTimer(ticketId)
   const timer = setTimeout(async () => {
     try {
-      const queued = await db.countQueuedTicketsForProject(projectId)
-      if (queued === 0) {
-        await stopProject(projectId)
-      }
+      await stopTicketContainer(ticketId)
     } catch (err) {
-      console.error(`[provisioner] Idle stop failed for project ${projectId}:`, err)
+      console.error(`[provisioner] Idle stop failed for ticket ${ticketId}:`, err)
     }
   }, config.containerIdleTimeoutMs)
-  idleTimers.set(projectId, timer)
+  idleTimers.set(ticketId, timer)
 }
 
-function cancelIdleTimer(projectId: string): void {
-  const timer = idleTimers.get(projectId)
+function cancelIdleTimer(ticketId: string): void {
+  const timer = idleTimers.get(ticketId)
   if (timer) {
     clearTimeout(timer)
-    idleTimers.delete(projectId)
+    idleTimers.delete(ticketId)
   }
 }
 
 // ─── Stop ─────────────────────────────────────────────────────────────────────
 
-async function stopProject(projectId: string): Promise<void> {
-  const entry = containers.get(projectId)
-  if (!entry?.id) return
+async function stopTicketContainer(ticketId: string): Promise<void> {
+  const entry = containers.get(ticketId)
+  if (!entry) return
 
   const id = entry.id
-  containers.delete(projectId)
-  cancelIdleTimer(projectId)
+  containers.delete(ticketId)
+  cancelIdleTimer(ticketId)
 
-  console.log(`[provisioner] Stopping container for project ${projectId}`)
+  console.log(`[provisioner] Stopping container for ticket ${ticketId}`)
   try {
     const container = getDocker().getContainer(id)
     await container.stop({ t: 5 })
@@ -114,6 +114,7 @@ async function stopProject(projectId: string): Promise<void> {
   } catch (err) {
     console.warn(`[provisioner] Error stopping container:`, err)
   }
+  await setContainerStatus(ticketId, 'stopped')
 }
 
 /** Stop all q-managed containers (found by label) and clear in-memory state */

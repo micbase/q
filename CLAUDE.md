@@ -7,11 +7,11 @@ Async task queue for Claude Code. A worker daemon drains the queue when Claude q
 Four logical pieces running in one Node.js process (q):
 
 - **Fastify** — REST API, SSE streaming, serves built Vue UI as static files
-- **Scheduler** — polls PostgreSQL every `POLL_INTERVAL_MS`, runs one ticket at a time
-- **Provisioner** — creates/stops Docker project containers on demand via dockerode
+- **Scheduler** — polls PostgreSQL every `POLL_INTERVAL_MS`, runs up to `MAX_CONCURRENT_TICKETS` in parallel
+- **Provisioner** — creates/stops Docker per-ticket containers on demand via dockerode
 - **SSE Broker** — in-memory fan-out from worker to open browser connections
 
-Each project gets an ephemeral **project container** — a `node:24-slim` image with the `claude` CLI installed, running `sleep infinity`. q invokes the CLI directly via `dockerode.exec()` and parses its streaming JSON stdout. No sidecar HTTP server, no SDK dependency in q itself.
+Each ticket gets an ephemeral **container** — a `node:24-slim` image with the `claude` CLI installed, running `sleep infinity`. q invokes the CLI directly via `dockerode.exec()` and parses its streaming JSON stdout. No sidecar HTTP server, no SDK dependency in q itself.
 
 ## Tech Stack
 
@@ -85,6 +85,7 @@ NTFY_URL=                       # ntfy push notification endpoint
 API_PORT=3200
 POLL_INTERVAL_MS=5000
 RETRY_DELAY_MS=60000
+MAX_CONCURRENT_TICKETS=2           # how many tickets to run in parallel
 CONTAINER_IDLE_TIMEOUT_MS=600000   # stop container after 10 min idle
 PROJECT_IMAGE=q-project         # Docker image name for project containers
 DRY_RUN=false                   # set true to skip Docker + Claude entirely
@@ -114,11 +115,12 @@ psql -U postgres -f sql/1.sql
 Tables: `projects`, `tickets`, `messages`
 
 - `tickets.project_id` references `projects.id`
+- `tickets.container_status` tracks the Docker container lifecycle (`stopped` / `starting` / `running`)
 - Conversation history is derived from `messages` on the fly via `getConversation()`
 
-## Project Containers
+## Ticket Containers
 
-Each project gets an ephemeral Docker container built from `Dockerfile.project`: `node:24-slim` with the `claude` CLI installed and `sleep infinity` as the entrypoint.
+Each ticket gets its own ephemeral Docker container built from `Dockerfile.project`: `node:24-slim` with the `claude` CLI installed and `sleep infinity` as the entrypoint. Container status is persisted to the `tickets.container_status` column and broadcast via `ContainerStatusChange` SSE events. The provisioner keeps only the Docker container ID and credential age in memory (needed for `docker exec` and token refresh).
 
 q invokes the CLI via `dockerode.exec()`:
 ```
@@ -159,12 +161,13 @@ Set `DRY_RUN=true` to test the full pipeline without Docker or Claude.
 
 ## Key Decisions
 
-- **One ticket at a time** — quota is shared; parallelism hits the wall faster
+- **Parallel execution** — up to `MAX_CONCURRENT_TICKETS` (default 2) run simultaneously, each in its own container
 - **SSE over WebSocket** — simpler, auto-reconnects on mobile, no upgrade handshake
 - **Git branch per ticket** — Claude works in `q/{ticket_id}`, pushes on done
 - **PostgreSQL external** — no compose file; `DB_HOST` etc. point at wherever PostgreSQL runs
 - **q invokes claude CLI via docker exec** — no SDK dependency in q; CLI runs inside project containers
 - **Containers are stateless** — full conversation history flattened and piped each run; no ~/.claude/ persistence needed
-- **Project containers ephemeral** — no volumes beyond `/workspace` mount; idle timeout auto-removes them
+- **Per-ticket containers** — each ticket gets its own container with isolated claude session mount (`/.claude-sessions/{ticketId}`); idle timeout auto-removes them
+- **Container status in DB** — `tickets.container_status` is the source of truth; provisioner keeps only docker ID + credential age in memory
 - **API key passed per-exec** — not baked into container env; more secure
 - **Env wiped at startup** — `scrubEnv()` clears all of `process.env`; config object already holds everything needed

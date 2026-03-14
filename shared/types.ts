@@ -51,6 +51,7 @@ export interface Ticket {
   description: string
   priority: number        // 1-5
   status: TicketStatus
+  container_status: ContainerStatus
   error?: string
   created_at: number      // unix ms
   updated_at: number
@@ -65,7 +66,7 @@ export interface Message extends ClaudeEvent {
 }
 
 export interface Status {
-  running_ticket: string | null
+  running_ticket_ids: string[]
   queue_depth: number
   paused_count: number
   dry_run: boolean

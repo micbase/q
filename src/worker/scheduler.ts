@@ -28,18 +28,17 @@ function parseResetDelay(err: unknown): number | null {
   return null
 }
 
-let currentTicketId: string | null = null
+const runningTickets = new Set<string>()
 
-export function getCurrentTicketId(): string | null {
-  return currentTicketId
+export function getRunningTicketIds(): string[] {
+  return Array.from(runningTickets)
 }
 
 class Scheduler {
-  private running = false
   private intervalHandle: ReturnType<typeof setInterval> | null = null
 
   start(): void {
-    console.log(`Scheduler starting, polling every ${config.pollIntervalMs}ms`)
+    console.log(`Scheduler starting, polling every ${config.pollIntervalMs}ms (max concurrent: ${config.maxConcurrentTickets})`)
     this.intervalHandle = setInterval(() => void this.tick(), config.pollIntervalMs)
     void this.tick()
   }
@@ -52,27 +51,24 @@ class Scheduler {
   }
 
   private async tick(): Promise<void> {
-    if (this.running) return
-    this.running = true
-
-    try {
+    while (runningTickets.size < config.maxConcurrentTickets) {
       const ticket = await db.nextQueuedTicket()
-      if (!ticket) { this.running = false; return }
+      if (!ticket) break
 
-      console.log(`[scheduler] Picked ticket ${ticket.id} "${ticket.title}" (P${ticket.priority})`)
-      currentTicketId = ticket.id
-      await this.process(ticket.id)
-    } finally {
-      this.running = false
-      currentTicketId = null
+      console.log(`[scheduler] Picked ticket ${ticket.id} "${ticket.title}" (P${ticket.priority}) [${runningTickets.size + 1}/${config.maxConcurrentTickets}]`)
+      runningTickets.add(ticket.id)
+      await emitTicketStatusChange(ticket.id, 'running')
+
+      // Fire-and-forget — don't await so we can fill remaining slots
+      this.process(ticket.id).finally(() => {
+        runningTickets.delete(ticket.id)
+      })
     }
   }
 
   private async process(ticketId: string): Promise<void> {
     const ticket = await db.getTicket(ticketId)
     if (!ticket) return
-
-    await emitTicketStatusChange(ticket.id, 'running')
 
     const sessionId = await db.getLastClaudeSessionId(ticket.id)
     const isResume = !!sessionId
@@ -97,7 +93,7 @@ class Scheduler {
       } else {
         const project = await db.getProject(ticket.project_id)
         if (!project) throw new Error(`Project ${ticket.project_id} not found`)
-        containerId = await provisioner.ensureRunning(project)
+        containerId = await provisioner.ensureRunning(project, ticket.id)
         const workDir = project.github_repo
           ? await ensureWorktree(containerId, ticket.id)
           : undefined
@@ -119,7 +115,7 @@ class Scheduler {
           }
           console.log(`[scheduler] Ticket ${ticket.id} completed`)
           await notify.send(`✅ Done: ${ticket.title}`)
-          if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)
+          if (!config.dryRun) provisioner.scheduleIdleStop(ticket.id)
           break
         }
 
@@ -130,7 +126,7 @@ class Scheduler {
           })
           console.log(`[scheduler] Ticket ${ticket.id} paused (waiting for input)`)
           await notify.send(`💬 Input needed: ${ticket.title}`, event.content)
-          if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)
+          if (!config.dryRun) provisioner.scheduleIdleStop(ticket.id)
           break
         }
 
@@ -141,7 +137,7 @@ class Scheduler {
           })
           console.error(`[scheduler] Ticket ${ticket.id} errored: ${event.content}`)
           await notify.send(`❌ Failed: ${ticket.title}`, event.content)
-          if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)
+          if (!config.dryRun) provisioner.scheduleIdleStop(ticket.id)
           break
         }
 
@@ -172,7 +168,7 @@ class Scheduler {
         })
         await notify.send(`❌ Failed: ${ticket.title}`, errMsg)
       }
-      if (!config.dryRun) provisioner.scheduleIdleStop(ticket.project_id)
+      if (!config.dryRun) provisioner.scheduleIdleStop(ticket.id)
     }
   }
 }

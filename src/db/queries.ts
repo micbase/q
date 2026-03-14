@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import { db as defaultDB, type DB } from './connection'
-import type { Project, Ticket, Message, MessageType, TicketStatus } from '../../shared/types'
+import type { Project, Ticket, Message, MessageType, TicketStatus, ContainerStatus } from '../../shared/types'
 
 function now(): number {
   return Date.now()
@@ -73,14 +73,6 @@ export async function deleteProject(id: string, q: DB = defaultDB): Promise<void
   if (active > 0) throw new Error('Cannot delete project with active tickets')
   const ts = now()
   await q.query("UPDATE projects SET status = 'deleted', updated_at = $1 WHERE id = $2", [ts, id])
-}
-
-export async function countQueuedTicketsForProject(projectId: string, q: DB = defaultDB): Promise<number> {
-  const { rows } = await q.query(
-    "SELECT COUNT(*) as cnt FROM tickets WHERE project_id = $1 AND status = 'queued'",
-    [projectId]
-  )
-  return Number(rows[0].cnt)
 }
 
 // ─── Tickets ─────────────────────────────────────────────────────────────────
@@ -166,6 +158,13 @@ export async function nextQueuedTicket(q: DB = defaultDB): Promise<Ticket | null
     "SELECT * FROM tickets WHERE status = 'queued' ORDER BY priority ASC, created_at ASC LIMIT 1"
   )
   return rows.length ? mapTicket(rows[0]) : null
+}
+
+export async function updateTicketContainerStatus(id: string, containerStatus: ContainerStatus, q: DB = defaultDB): Promise<void> {
+  await q.query(
+    'UPDATE tickets SET container_status = $1, updated_at = $2 WHERE id = $3',
+    [containerStatus, now(), id]
+  )
 }
 
 export async function countQueuedTickets(q: DB = defaultDB): Promise<number> {
@@ -265,6 +264,7 @@ function mapTicket(row: Ticket): Ticket {
   return {
     ...row,
     priority: Number(row.priority),
+    container_status: row.container_status ?? 'stopped',
     created_at: Number(row.created_at),
     updated_at: Number(row.updated_at),
     started_at: row.started_at ? Number(row.started_at) : undefined,
