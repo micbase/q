@@ -35,6 +35,7 @@ type CLIEvent = CLIMessageEvent | CLIResultEvent | { type: string; [key: string]
 export async function* callClaude(
   containerId: string,
   prompt: string,
+  logTag: string,
   sessionId?: string,
   workDir?: string,
 ): AsyncGenerator<ClaudeEvent> {
@@ -43,26 +44,26 @@ export async function* callClaude(
     cmd.push('--resume', sessionId)
   }
 
-  const tag = `[claude-client ${containerId.slice(0, 8)}]`
-  console.log(`${tag} exec: ${cmd.join(' ')}`)
-  console.log(`${tag} workDir: ${workDir ?? '/workspace'}`)
-  console.log(`${tag} prompt length: ${prompt.length} chars`)
+  const t = `[claude ${logTag}]`
+  console.log(`${t} exec: ${cmd.join(' ')}`)
+  console.log(`${t} workDir: ${workDir ?? '/workspace'}`)
+  console.log(`${t} prompt length: ${prompt.length} chars`)
 
   const { exec, duplex, stdout, stderr } = await execInteractive(containerId, cmd, {
     WorkingDir: workDir ?? '/workspace',
   })
 
-  console.log(`${tag} exec started, writing prompt to stdin`)
+  console.log(`${t} exec started, writing prompt to stdin`)
 
   // Write prompt to stdin, then close stdin
   duplex.write(prompt)
   duplex.end()
-  console.log(`${tag} stdin closed`)
+  console.log(`${t} stdin closed`)
 
   // Collect stderr for error reporting
   const stderrChunks: Buffer[] = []
   stderr.on('data', (chunk: Buffer) => {
-    console.log(`${tag} stderr: ${chunk.toString().trim()}`)
+    console.log(`${t} stderr: ${chunk.toString().trim()}`)
     stderrChunks.push(chunk)
   })
 
@@ -75,7 +76,7 @@ export async function* callClaude(
   const watchdog = setInterval(() => {
     const silentSec = ((Date.now() - lastEventTime) / 1000).toFixed(0)
     const totalSec = ((Date.now() - startTime) / 1000).toFixed(0)
-    console.log(`${tag} watchdog: ${eventCount} events, silent ${silentSec}s, total ${totalSec}s`)
+    console.log(`${t} watchdog: ${eventCount} events, silent ${silentSec}s, total ${totalSec}s`)
   }, 30_000)
 
   try {
@@ -93,21 +94,21 @@ export async function* callClaude(
         try {
           event = JSON.parse(trimmed)
         } catch {
-          console.log(`${tag} unparseable line: ${trimmed.slice(0, 200)}`)
+          console.log(`${t} unparseable line: ${trimmed.slice(0, 200)}`)
           continue
         }
 
         eventCount++
         if (event.type === 'result') {
           const e = event as CLIResultEvent
-          console.log(`${tag} result event: subtype=${e.subtype}, session_id=${e.session_id}`)
+          console.log(`${t} result event: subtype=${e.subtype}, session_id=${e.session_id}`)
         }
 
         yield* mapCLIEvent(event)
       }
     }
 
-    console.log(`${tag} stdout ended after ${eventCount} events, ${((Date.now() - startTime) / 1000).toFixed(1)}s`)
+    console.log(`${t} stdout ended after ${eventCount} events, ${((Date.now() - startTime) / 1000).toFixed(1)}s`)
 
     // If CLI produced no events, it likely failed on startup
     if (eventCount === 0) {
@@ -121,14 +122,14 @@ export async function* callClaude(
         const event: CLIEvent = JSON.parse(buffer.trim())
         yield* mapCLIEvent(event)
       } catch {
-        console.log(`${tag} unparseable trailing buffer: ${buffer.trim().slice(0, 200)}`)
+        console.log(`${t} unparseable trailing buffer: ${buffer.trim().slice(0, 200)}`)
       }
     }
 
     // Check exit code
-    console.log(`${tag} inspecting exec exit code...`)
+    console.log(`${t} inspecting exec exit code...`)
     const inspectResult = await exec.inspect()
-    console.log(`${tag} exit code: ${inspectResult.ExitCode}`)
+    console.log(`${t} exit code: ${inspectResult.ExitCode}`)
     if (inspectResult.ExitCode !== 0 && inspectResult.ExitCode !== null) {
       const stderrText = Buffer.concat(stderrChunks).toString().trim()
       throw new Error(`claude CLI exited with code ${inspectResult.ExitCode}: ${stderrText || '(no stderr)'}`)
@@ -194,6 +195,6 @@ function* mapCLIEvent(event: CLIEvent): Generator<ClaudeEvent> {
       yield { type: 'error', role: 'assistant', content: `Session ended: ${e.subtype}`, claude_session_id: e.session_id }
     }
   } else if (event.type !== 'system') {
-    console.log(`[claude-client] unhandled event type: ${event.type} ${JSON.stringify(event).slice(0, 300)}`)
+    console.log(`[claude] unhandled event type: ${event.type} ${JSON.stringify(event).slice(0, 300)}`)
   }
 }

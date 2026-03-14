@@ -5,7 +5,7 @@ import { scheduler } from './worker/scheduler'
 import * as provisioner from './worker/provisioner'
 
 async function main(): Promise<void> {
-  console.log('Starting Q...')
+  console.log('[q] Starting...')
 
   // Validate config (reads env vars)
   validate()
@@ -22,14 +22,14 @@ async function main(): Promise<void> {
   // Start HTTP server
   const app = await buildServer()
   await app.listen({ port: config.port, host: '0.0.0.0' })
-  console.log(`Server listening on port ${config.port}`)
+  console.log(`[q] Server listening on port ${config.port}`)
 
   // Start worker scheduler
   scheduler.start()
 
-  console.log('Q is running')
+  console.log('[q] Running')
   if (config.dryRun) {
-    console.log('⚠️  DRY RUN MODE — Docker and Claude will not be used')
+    console.log('[q] DRY RUN MODE — Docker and Claude will not be used')
   }
 
   // Start dev proxy if configured
@@ -38,12 +38,12 @@ async function main(): Promise<void> {
     const { createProxyServer } = await import('./proxy/proxy')
     proxyServer = createProxyServer()
     await new Promise<void>((resolve) => proxyServer!.listen(config.proxyPort, '0.0.0.0', resolve))
-    console.log(`Dev proxy listening on port ${config.proxyPort} (*.${config.proxyDomain})`)
+    console.log(`[q] Dev proxy listening on port ${config.proxyPort} (*.${config.proxyDomain})`)
   }
 
   // Graceful shutdown
   const shutdown = async () => {
-    console.log('\nShutting down...')
+    console.log('\n[q] Shutting down...')
     scheduler.stop()
     if (proxyServer) await new Promise<void>((resolve) => proxyServer!.close(() => resolve()))
     await provisioner.stopAll()
@@ -56,6 +56,6 @@ async function main(): Promise<void> {
 }
 
 main().catch(err => {
-  console.error('Fatal error:', err)
+  console.error('[q] Fatal error:', err)
   process.exit(1)
 })

@@ -16,8 +16,8 @@ export interface ExecOptions {
 }
 
 /** Run a command in a container, wait for completion, return stdout as string. Throws on non-zero exit. */
-export async function execInContainer(containerId: string, cmd: string[], opts?: ExecOptions): Promise<string> {
-  console.log(`[exec] ${containerId.slice(0, 12)} ${cmd.join(' ')}`)
+export async function execInContainer(containerId: string, cmd: string[], logTag: string, opts?: ExecOptions): Promise<string> {
+  console.log(`[exec ${logTag}] ${cmd.join(' ')}`)
   const exec = await getDocker().getContainer(containerId).exec({
     Cmd: cmd,
     AttachStdout: true,

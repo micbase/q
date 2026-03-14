@@ -12,6 +12,6 @@ export async function send(title: string, body?: string): Promise<void> {
       body: body ?? '',
     })
   } catch (err) {
-    console.error('ntfy notification failed:', err)
+    console.error('[notify] ntfy notification failed:', err)
   }
 }

@@ -65,32 +65,33 @@ export async function getInstallationToken(repo: string): Promise<string> {
 // ─── Container credential setup ─────────────────────────────────────────────
 
 /** Configure git credentials in a running container using a GitHub installation token */
-export async function setupGitCredentials(containerId: string, token: string): Promise<void> {
+export async function setupGitCredentials(containerId: string, token: string, logTag: string): Promise<void> {
   await execInContainer(containerId, [
     'sh', '-c',
     `git config --global credential.helper '!f() { echo "username=x-access-token"; echo "password=${token}"; }; f'`,
-  ])
-  console.log(`[github] Git credentials configured in container ${containerId.slice(0, 12)}`)
+  ], logTag)
+  console.log(`[git ${logTag}] Credentials configured`)
 }
 
 /** Clone a GitHub repo into /workspace if not already cloned (uses credentials already configured in container) */
-export async function cloneRepoIfNeeded(containerId: string, repo: string): Promise<void> {
-  const hasRepo = await execInContainer(containerId, ['test', '-d', '/workspace/.git']).then(() => true, () => false)
+export async function cloneRepoIfNeeded(containerId: string, repo: string, logTag: string): Promise<void> {
+  const t = `[git ${logTag}]`
+  const hasRepo = await execInContainer(containerId, ['test', '-d', '/workspace/.git'], logTag).then(() => true, () => false)
   if (hasRepo) {
-    console.log(`[github] Repo already present in /workspace, skipping clone`)
+    console.log(`${t} Repo already present in /workspace, skipping clone`)
     return
   }
   await execInContainer(containerId, [
     'git', 'clone', `https://github.com/${repo}.git`, '/workspace',
-  ])
-  console.log(`[github] Cloned ${repo} into /workspace in container ${containerId.slice(0, 12)}`)
+  ], logTag)
+  console.log(`${t} Cloned ${repo} into /workspace`)
 }
 
 /** Configure git user.name and user.email in a running container */
-export async function setupGitIdentity(containerId: string): Promise<void> {
-  await execInContainer(containerId, ['git', 'config', '--global', 'user.name', config.githubCommitName])
-  await execInContainer(containerId, ['git', 'config', '--global', 'user.email', config.githubCommitEmail])
-  console.log(`[github] Git identity configured in container ${containerId.slice(0, 12)}`)
+export async function setupGitIdentity(containerId: string, logTag: string): Promise<void> {
+  await execInContainer(containerId, ['git', 'config', '--global', 'user.name', config.githubCommitName], logTag)
+  await execInContainer(containerId, ['git', 'config', '--global', 'user.email', config.githubCommitEmail], logTag)
+  console.log(`[git ${logTag}] Identity configured`)
 }
 
 // ─── Worktree management ─────────────────────────────────────────────────────
@@ -108,73 +109,74 @@ export function worktreePath(ticketId: string): string {
  * - Re-opened ticket (branch exists on remote): fetch + recreate worktree from remote branch
  * - Paused ticket (worktree still exists): no-op
  */
-export async function ensureWorktree(containerId: string, ticketId: string): Promise<string> {
+export async function ensureWorktree(containerId: string, ticketId: string, logTag: string): Promise<string> {
+  const t = `[git ${logTag}]`
   const wt = worktreePath(ticketId)
   const branch = `q/${ticketId}`
 
   // If worktree already exists (paused ticket), just return the path
-  const exists = await execInContainer(containerId, ['test', '-d', wt]).then(() => true, () => false)
+  const exists = await execInContainer(containerId, ['test', '-d', wt], logTag).then(() => true, () => false)
   if (exists) {
-    console.log(`[github] Worktree already exists at ${wt}`)
+    console.log(`${t} Worktree already exists at ${wt}`)
     return wt
   }
 
   // Fetch latest from origin
-  await execInContainer(containerId, ['git', '-C', '/workspace', 'fetch', 'origin'])
+  await execInContainer(containerId, ['git', '-C', '/workspace', 'fetch', 'origin'], logTag)
 
   // Check if the branch exists on remote (re-opened ticket)
   const remoteBranchExists = await execInContainer(containerId, [
     'git', '-C', '/workspace', 'rev-parse', '--verify', `refs/remotes/origin/${branch}`,
-  ]).then(() => true, () => false)
+  ], logTag).then(() => true, () => false)
 
   // Ensure parent directory exists
-  await execInContainer(containerId, ['mkdir', '-p', `${WORKTREE_BASE}/q`])
+  await execInContainer(containerId, ['mkdir', '-p', `${WORKTREE_BASE}/q`], logTag)
 
   if (remoteBranchExists) {
     // Re-opened: create worktree tracking the existing remote branch
     // First remove stale worktree reference if any
     await execInContainer(containerId, [
       'git', '-C', '/workspace', 'worktree', 'prune',
-    ])
+    ], logTag)
     await execInContainer(containerId, [
       'git', '-C', '/workspace', 'worktree', 'add', wt, branch,
-    ]).catch(async (err) => {
-      console.warn(`[github] worktree add failed, retrying with branch reset:`, err.message ?? err)
+    ], logTag).catch(async (err) => {
+      console.warn(`${t} Worktree add failed, retrying with branch reset:`, err.message ?? err)
       // Branch may exist locally but worktree was removed — reset it
       await execInContainer(containerId, [
         'git', '-C', '/workspace', 'branch', '-D', branch,
-      ])
+      ], logTag)
       await execInContainer(containerId, [
         'git', '-C', '/workspace', 'worktree', 'add', wt, '-b', branch, `origin/${branch}`,
-      ])
+      ], logTag)
     })
-    console.log(`[github] Recreated worktree for ${branch} from remote`)
+    console.log(`${t} Recreated worktree for ${branch} from remote`)
   } else {
     // New ticket: determine default branch and create worktree from it
     const defaultBranch = await execInContainer(containerId, [
       'git', '-C', '/workspace', 'symbolic-ref', 'refs/remotes/origin/HEAD',
-    ]).then(
+    ], logTag).then(
       ref => ref.trim().replace('refs/remotes/origin/', ''),
       () => 'master',
     )
     await execInContainer(containerId, [
       'git', '-C', '/workspace', 'worktree', 'add', '-b', branch, wt, `origin/${defaultBranch}`,
-    ])
-    console.log(`[github] Created worktree for ${branch} from ${defaultBranch}`)
+    ], logTag)
+    console.log(`${t} Created worktree for ${branch} from ${defaultBranch}`)
   }
 
   return wt
 }
 
 /** Remove a ticket's worktree (called on done) */
-export async function removeWorktree(containerId: string, ticketId: string): Promise<void> {
+export async function removeWorktree(containerId: string, ticketId: string, logTag: string): Promise<void> {
   const wt = worktreePath(ticketId)
-  const exists = await execInContainer(containerId, ['test', '-d', wt]).then(() => true, () => false)
+  const exists = await execInContainer(containerId, ['test', '-d', wt], logTag).then(() => true, () => false)
   if (!exists) return
 
   await execInContainer(containerId, [
     'git', '-C', '/workspace', 'worktree', 'remove', '--force', wt,
-  ])
-  console.log(`[github] Removed worktree ${wt}`)
+  ], logTag)
+  console.log(`[git ${logTag}] Removed worktree ${wt}`)
 }
 

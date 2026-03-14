@@ -44,5 +44,5 @@ export async function withTransaction<T>(fn: (tx: DB) => Promise<T>): Promise<T>
 
 export async function testConnection(): Promise<void> {
   await getPool().query('SELECT 1')
-  console.log('Database connection OK')
+  console.log('[db] Connection OK')
 }

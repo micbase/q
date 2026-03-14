@@ -8,7 +8,7 @@ const LABEL_MANAGED = 'q.managed'
 
 const TOKEN_MAX_AGE_MS = 55 * 60 * 1000 // refresh credentials before 1h expiry
 
-interface ContainerEntry { id: string; credentialsAt?: number; ip?: string }
+interface ContainerEntry { id: string; logTag: string; credentialsAt?: number; ip?: string }
 
 // In-memory map: ticketId → docker container id + credential age (not status — status lives in DB)
 const containers = new Map<string, ContainerEntry>()
@@ -25,7 +25,7 @@ async function refreshCredentials(entry: ContainerEntry, project: Project): Prom
   const age = Date.now() - (entry.credentialsAt ?? 0)
   if (age < TOKEN_MAX_AGE_MS) return
   const token = await getInstallationToken(project.github_repo)
-  await setupGitCredentials(entry.id, token)
+  await setupGitCredentials(entry.id, token, entry.logTag)
   entry.credentialsAt = Date.now()
 }
 
@@ -45,6 +45,11 @@ export async function getContainerIp(ticketId: string): Promise<string | null> {
   } catch {
     return null
   }
+}
+
+/** Get the log tag for a ticket's container */
+export function getContainerTag(ticketId: string): string {
+  return containers.get(ticketId)?.logTag ?? ticketId
 }
 
 // ─── Ensure running ───────────────────────────────────────────────────────────
@@ -75,13 +80,14 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
 
   const info = await container.inspect()
   const id = info.Id
+  const logTag = `${project.name} ${ticketId} ${id.slice(0, 12)}`
 
-  await setupGitIdentity(id)
+  await setupGitIdentity(id, logTag)
 
-  const entry: ContainerEntry = { id }
+  const entry: ContainerEntry = { id, logTag }
   await refreshCredentials(entry, project)
   if (project.github_repo) {
-    await cloneRepoIfNeeded(id, project.github_repo)
+    await cloneRepoIfNeeded(id, project.github_repo, logTag)
   }
 
   containers.set(ticketId, entry)

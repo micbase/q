@@ -8,9 +8,9 @@ function parseEnvs(devEnvs?: string): string[] {
     .filter(line => line && !line.startsWith('#'))
 }
 
-export async function runDevCommand(containerId: string, command: string, workDir: string, devEnvs?: string): Promise<void> {
-  const tag = `[dev-command ${containerId.slice(0, 12)}]`
-  console.log(`${tag} Running in ${workDir}: ${command}`)
+export async function runDevCommand(containerId: string, command: string, workDir: string, logTag: string, devEnvs?: string): Promise<void> {
+  const t = `[dev ${logTag}]`
+  console.log(`${t} Running in ${workDir}: ${command}`)
   const env = parseEnvs(devEnvs)
   const { stdout, stderr } = await execInteractive(containerId, ['sh', '-c', command], {
     Env: env.length > 0 ? env : undefined,
@@ -19,9 +19,9 @@ export async function runDevCommand(containerId: string, command: string, workDi
 
   // Log stderr lines asynchronously (don't block)
   stderr.on('data', (chunk: Buffer) => {
-    console.error(`${tag} ${chunk.toString().trimEnd()}`)
+    console.error(`${t} ${chunk.toString().trimEnd()}`)
   })
   stdout.on('data', (chunk: Buffer) => {
-    console.log(`${tag} ${chunk.toString().trimEnd()}`)
+    console.log(`${t} ${chunk.toString().trimEnd()}`)
   })
 }

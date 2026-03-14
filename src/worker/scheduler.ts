@@ -38,7 +38,7 @@ class Scheduler {
   private intervalHandle: ReturnType<typeof setInterval> | null = null
 
   start(): void {
-    console.log(`Scheduler starting, polling every ${config.pollIntervalMs}ms (max concurrent: ${config.maxConcurrentTickets})`)
+    console.log(`[scheduler] Starting, polling every ${config.pollIntervalMs}ms (max concurrent: ${config.maxConcurrentTickets})`)
     this.intervalHandle = setInterval(() => void this.tick(), config.pollIntervalMs)
     void this.tick()
   }
@@ -84,6 +84,7 @@ class Scheduler {
     }
 
     let containerId: string | undefined
+    let logTag: string | undefined
 
     try {
       let eventSource: AsyncGenerator<ClaudeEvent>
@@ -94,10 +95,11 @@ class Scheduler {
         const project = await db.getProject(ticket.project_id)
         if (!project) throw new Error(`Project ${ticket.project_id} not found`)
         containerId = await provisioner.ensureRunning(project, ticket.id)
+        logTag = provisioner.getContainerTag(ticket.id)
         let workDir: string | undefined
         if (project.github_repo) {
           try {
-            workDir = await ensureWorktree(containerId, ticket.id)
+            workDir = await ensureWorktree(containerId, ticket.id, logTag)
           } catch (err) {
             console.error(`[scheduler] Failed to create worktree for ${ticket.id}:`, err)
             throw err
@@ -105,13 +107,13 @@ class Scheduler {
         }
         if (project.dev_command) {
           try {
-            await runDevCommand(containerId, project.dev_command, workDir ?? '/workspace', project.dev_envs)
+            await runDevCommand(containerId, project.dev_command, workDir ?? '/workspace', logTag, project.dev_envs)
           } catch (err) {
             console.error(`[scheduler] Failed to start dev server for ${ticket.id}:`, err)
             throw err
           }
         }
-        eventSource = callClaude(containerId, prompt, sessionId ?? undefined, workDir)
+        eventSource = callClaude(containerId, prompt, logTag, sessionId ?? undefined, workDir)
       }
 
       for await (const event of eventSource) {
@@ -121,7 +123,7 @@ class Scheduler {
             await emitTicketStatusChange(ticket.id, 'done', undefined, tx)
           })
           if (containerId) {
-            await removeWorktree(containerId, ticket.id).catch(err =>
+            await removeWorktree(containerId, ticket.id, logTag!).catch(err =>
               console.warn(`[scheduler] Failed to remove worktree for ${ticket.id}:`, err))
           }
           console.log(`[scheduler] Ticket ${ticket.id} completed`)
@@ -168,11 +170,11 @@ class Scheduler {
         await emitTicketStatusChange(ticket.id, 'queued')
         const delay = parseResetDelay(err) ?? config.retryDelayMs
         await notify.send(`⏳ Quota exceeded`, `Retrying in ${ms(delay)}`)
-        console.warn(`Quota error, sleeping ${delay}ms`)
+        console.warn(`[scheduler] Quota error, sleeping ${delay}ms`)
         await sleep(delay)
       } else {
         const errMsg = err instanceof Error ? err.message : String(err)
-        console.error(`Ticket ${ticket.id} failed:`, err)
+        console.error(`[scheduler] Ticket ${ticket.id} failed:`, err)
         await withTransaction(async (tx) => {
           await emitMessage(ticket.id, errMsg, 'error', 'system', {}, tx)
           await emitTicketStatusChange(ticket.id, 'failed', errMsg, tx)

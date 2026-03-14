@@ -59,15 +59,15 @@ export function scrubEnv(): void {
 
 export function validate(): void {
 
-  console.log(`Config loaded:`)
-  console.log(`  DB: ${config.db.user}@${config.db.host}:${config.db.port}/${config.db.database}`)
-  console.log(`  Port: ${config.port}`)
-  console.log(`  Poll interval: ${config.pollIntervalMs}ms`)
-  console.log(`  Container idle timeout: ${config.containerIdleTimeoutMs}ms`)
-  console.log(`  Projects dir: ${config.projectsDir}`)
-  console.log(`  Project image: ${config.projectImage}`)
-  console.log(`  Dry run: ${config.dryRun}`)
-  if (config.ntfyUrl) console.log(`  ntfy: ${config.ntfyUrl}`)
-  if (config.githubAppId) console.log(`  GitHub App: ${config.githubAppId}`)
-  if (config.proxyDomain) console.log(`  Proxy: *.${config.proxyDomain} on port ${config.proxyPort} → :${config.devServerPort}`)
+  console.log(`[config] Loaded:`)
+  console.log(`[config]   DB: ${config.db.user}@${config.db.host}:${config.db.port}/${config.db.database}`)
+  console.log(`[config]   Port: ${config.port}`)
+  console.log(`[config]   Poll interval: ${config.pollIntervalMs}ms`)
+  console.log(`[config]   Container idle timeout: ${config.containerIdleTimeoutMs}ms`)
+  console.log(`[config]   Projects dir: ${config.projectsDir}`)
+  console.log(`[config]   Project image: ${config.projectImage}`)
+  console.log(`[config]   Dry run: ${config.dryRun}`)
+  if (config.ntfyUrl) console.log(`[config]   ntfy: ${config.ntfyUrl}`)
+  if (config.githubAppId) console.log(`[config]   GitHub App: ${config.githubAppId}`)
+  if (config.proxyDomain) console.log(`[config]   Proxy: *.${config.proxyDomain} on port ${config.proxyPort} → :${config.devServerPort}`)
 }
