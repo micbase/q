@@ -1,4 +1,4 @@
-import { getDocker } from './docker'
+import { execInteractive } from './docker'
 
 function parseEnvs(devEnvs?: string): string[] {
   if (!devEnvs) return []
@@ -9,14 +9,19 @@ function parseEnvs(devEnvs?: string): string[] {
 }
 
 export async function runDevCommand(containerId: string, command: string, workDir: string, devEnvs?: string): Promise<void> {
-  console.log(`[dev-command] Running in ${workDir}: ${command}`)
+  const tag = `[dev-command ${containerId.slice(0, 12)}]`
+  console.log(`${tag} Running in ${workDir}: ${command}`)
   const env = parseEnvs(devEnvs)
-  const exec = await getDocker().getContainer(containerId).exec({
-    Cmd: ['sh', '-c', command],
+  const { stdout, stderr } = await execInteractive(containerId, ['sh', '-c', command], {
     Env: env.length > 0 ? env : undefined,
     WorkingDir: workDir,
-    AttachStdout: false,
-    AttachStderr: false,
   })
-  await exec.start({ Detach: true } as any)
+
+  // Log stderr lines asynchronously (don't block)
+  stderr.on('data', (chunk: Buffer) => {
+    console.error(`${tag} ${chunk.toString().trimEnd()}`)
+  })
+  stdout.on('data', (chunk: Buffer) => {
+    console.log(`${tag} ${chunk.toString().trimEnd()}`)
+  })
 }

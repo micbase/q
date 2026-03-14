@@ -1,8 +1,6 @@
-import { PassThrough } from 'stream'
-
 import { isQuestion } from './session'
 import type { ClaudeEvent, MessageType } from '../../shared/types'
-import { getDocker } from './docker'
+import { execInteractive } from './docker'
 
 // ─── CLI event types (stream-json output) ─────────────────────────────────────
 
@@ -50,40 +48,16 @@ export async function* callClaude(
   console.log(`${tag} workDir: ${workDir ?? '/workspace'}`)
   console.log(`${tag} prompt length: ${prompt.length} chars`)
 
-  const exec = await getDocker().getContainer(containerId).exec({
-    Cmd: cmd,
+  const { exec, duplex, stdout, stderr } = await execInteractive(containerId, cmd, {
     WorkingDir: workDir ?? '/workspace',
-    AttachStdin: true,
-    AttachStdout: true,
-    AttachStderr: true,
   })
 
-  console.log(`${tag} exec created, starting...`)
-  const duplex = await exec.start({ hijack: true, stdin: true })
   console.log(`${tag} exec started, writing prompt to stdin`)
 
   // Write prompt to stdin, then close stdin
   duplex.write(prompt)
   duplex.end()
   console.log(`${tag} stdin closed`)
-
-  // Demux dockerode raw stream into separate stdout/stderr
-  const stdout = new PassThrough()
-  const stderr = new PassThrough()
-  getDocker().modem.demuxStream(duplex, stdout, stderr)
-
-  // When the raw stream ends, make sure stdout/stderr end too
-  // (demuxStream doesn't always propagate end for error exits)
-  duplex.on('end', () => {
-    console.log(`${tag} duplex ended`)
-    if (!stdout.destroyed) stdout.end()
-    if (!stderr.destroyed) stderr.end()
-  })
-  duplex.on('close', () => {
-    console.log(`${tag} duplex closed`)
-    if (!stdout.destroyed) stdout.end()
-    if (!stderr.destroyed) stderr.end()
-  })
 
   // Collect stderr for error reporting
   const stderrChunks: Buffer[] = []

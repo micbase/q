@@ -1,7 +1,6 @@
 import crypto from 'crypto'
-import { PassThrough } from 'stream'
 import { config } from '../config'
-import { getDocker } from './docker'
+import { execInContainer } from './docker'
 
 // ─── JWT ─────────────────────────────────────────────────────────────────────
 
@@ -152,7 +151,7 @@ export async function ensureWorktree(containerId: string, ticketId: string): Pro
     console.log(`[github] Recreated worktree for ${branch} from remote`)
   } else {
     // New ticket: determine default branch and create worktree from it
-    const defaultBranch = await execInContainerOutput(containerId, [
+    const defaultBranch = await execInContainer(containerId, [
       'git', '-C', '/workspace', 'symbolic-ref', 'refs/remotes/origin/HEAD',
     ]).then(
       ref => ref.trim().replace('refs/remotes/origin/', ''),
@@ -179,46 +178,3 @@ export async function removeWorktree(containerId: string, ticketId: string): Pro
   console.log(`[github] Removed worktree ${wt}`)
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-async function execInContainer(containerId: string, cmd: string[]): Promise<void> {
-  await execInContainerOutput(containerId, cmd)
-}
-
-async function execInContainerOutput(containerId: string, cmd: string[]): Promise<string> {
-  console.log(`[exec] ${containerId.slice(0, 12)} ${cmd.join(' ')}`)
-  const exec = await getDocker().getContainer(containerId).exec({
-    Cmd: cmd,
-    AttachStdout: true,
-    AttachStderr: true,
-  })
-  const stream = await exec.start({})
-
-  // Demux the multiplexed docker stream to get clean stdout/stderr
-  const stdout = new PassThrough()
-  const stderr = new PassThrough()
-  getDocker().modem.demuxStream(stream, stdout, stderr)
-  stream.on('end', () => { stdout.end(); stderr.end() })
-
-  const stdoutChunks: Buffer[] = []
-  const stderrChunks: Buffer[] = []
-  await Promise.all([
-    new Promise<void>((resolve, reject) => {
-      stdout.on('data', (chunk: Buffer) => stdoutChunks.push(chunk))
-      stdout.on('end', resolve)
-      stdout.on('error', reject)
-    }),
-    new Promise<void>((resolve, reject) => {
-      stderr.on('data', (chunk: Buffer) => stderrChunks.push(chunk))
-      stderr.on('end', resolve)
-      stderr.on('error', reject)
-    }),
-  ])
-
-  const { ExitCode } = await exec.inspect()
-  if (ExitCode !== 0) {
-    const errOutput = Buffer.concat(stderrChunks).toString().trim()
-    throw new Error(`exec failed (exit ${ExitCode}): ${cmd.join(' ')}${errOutput ? `\n${errOutput}` : ''}`)
-  }
-  return Buffer.concat(stdoutChunks).toString()
-}
