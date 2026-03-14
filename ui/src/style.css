@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* highlight.js inline token colors (no theme import needed) */
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in { color: #8959a8; }
+.hljs-title, .hljs-title.function_, .hljs-section { color: #4271ae; }
+.hljs-string, .hljs-attr { color: #718c00; }
+.hljs-number, .hljs-literal { color: #f5871f; }
+.hljs-comment, .hljs-quote { color: #8e908c; font-style: italic; }
+.hljs-type, .hljs-class .hljs-title { color: #c82829; }
+.hljs-variable, .hljs-template-variable { color: #c82829; }
+.hljs-regexp { color: #c82829; }
+.hljs-meta { color: #3e999f; }
+.hljs-tag { color: #c82829; }
+.hljs-name { color: #c82829; }
+.hljs-attribute { color: #f5871f; }
+.hljs-symbol, .hljs-bullet { color: #718c00; }
+.hljs-params { color: #4d4d4c; }
+.hljs-punctuation { color: #4d4d4c; }
+
 body {
   @apply bg-gray-50 text-gray-900;
 }

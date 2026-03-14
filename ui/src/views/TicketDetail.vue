@@ -70,15 +70,27 @@
               <span v-if="g.result?.is_error" class="text-red-500 text-xs font-medium ml-auto shrink-0">error</span>
             </div>
 
-            <!-- Expanded: tool input -->
-            <div v-if="expanded.has(g.idx) && g.use?.tool_name && toolBody(g.use.tool_name, g.use.content)"
-              class="px-3 py-2 font-mono text-xs text-blue-900 whitespace-pre-wrap max-h-64 overflow-y-auto bg-blue-50 border-t border-gray-300">{{ toolBody(g.use.tool_name, g.use.content) }}</div>
+            <!-- Expanded: Edit diff -->
+            <template v-if="expanded.has(g.idx) && g.use?.tool_name === 'Edit' && editInput(g.use.content)">
+              <EditDiff
+                :old-string="editInput(g.use.content)!.old_string"
+                :new-string="editInput(g.use.content)!.new_string"
+                :file-path="editInput(g.use.content)!.file_path"
+              />
+              <div v-if="g.result?.is_error" class="px-3 py-2 font-mono text-xs whitespace-pre-wrap max-h-96 overflow-y-auto border-t border-gray-300 bg-red-50 text-red-800">{{ g.result.content }}</div>
+            </template>
 
-            <!-- Expanded: tool result -->
-            <div v-if="expanded.has(g.idx) && g.result && g.use?.tool_name && isExpandable(g.use.tool_name)" :class="[
-              'px-3 py-2 font-mono text-xs whitespace-pre-wrap max-h-96 overflow-y-auto border-t border-gray-300',
-              g.result.is_error ? 'bg-red-50 text-red-800' : 'bg-gray-50 text-gray-700'
-            ]">{{ g.result.content }}</div>
+            <!-- Expanded: tool input (non-Edit) -->
+            <template v-else-if="expanded.has(g.idx) && g.use?.tool_name">
+              <div v-if="toolBody(g.use.tool_name, g.use.content)"
+                class="px-3 py-2 font-mono text-xs text-blue-900 whitespace-pre-wrap max-h-64 overflow-y-auto bg-blue-50 border-t border-gray-300">{{ toolBody(g.use.tool_name, g.use.content) }}</div>
+
+              <!-- Expanded: tool result -->
+              <div v-if="g.result && isExpandable(g.use.tool_name)" :class="[
+                'px-3 py-2 font-mono text-xs whitespace-pre-wrap max-h-96 overflow-y-auto border-t border-gray-300',
+                g.result.is_error ? 'bg-red-50 text-red-800' : 'bg-gray-50 text-gray-700'
+              ]">{{ g.result.content }}</div>
+            </template>
           </div>
         </div>
 
@@ -135,6 +147,7 @@ import type { Ticket, Project, StreamEvent, MessageType } from '../../../shared/
 import { bus } from '../bus'
 import StatusChip from '../components/StatusChip.vue'
 import PriorityPips from '../components/PriorityPips.vue'
+import EditDiff from '../components/EditDiff.vue'
 
 interface DisplayMsg {
   message_type: MessageType
@@ -231,6 +244,15 @@ function toolBody(name: string, content: string): string {
     if (name === 'Read' || name === 'Write') return ''
   } catch { /* not JSON */ }
   return content
+}
+
+function editInput(content: string): { file_path: string; old_string: string; new_string: string } | null {
+  if (!content) return null
+  try {
+    const json = JSON.parse(content)
+    if (json.old_string != null && json.new_string != null && json.file_path) return json
+  } catch { /* not JSON */ }
+  return null
 }
 
 function isExpandable(name: string): boolean {
