@@ -174,9 +174,8 @@ export async function removeWorktree(containerId: string, ticketId: string, logT
   const exists = await execInContainer(containerId, ['test', '-d', wt], logTag).then(() => true, () => false)
   if (!exists) return
 
-  await execInContainer(containerId, [
-    'git', '-C', '/workspace', 'worktree', 'remove', '--force', wt,
-  ], logTag)
+  await execInContainer(containerId, ['rm', '-rf', wt], logTag)
+  await execInContainer(containerId, ['git', '-C', '/workspace', 'worktree', 'prune'], logTag)
   console.log(`[git ${logTag}] Removed worktree ${wt}`)
 }
 
