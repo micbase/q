@@ -44,6 +44,9 @@ export const config = {
   githubPrivateKey: optional('GITHUB_PRIVATE_KEY', '').replace(/\\n/g, '\n'),
   githubCommitName: optional('GITHUB_COMMIT_NAME', 'q'),
   githubCommitEmail: optional('GITHUB_COMMIT_EMAIL', 'q@noreply'),
+  proxyPort: optionalInt('PROXY_PORT', 3201),
+  proxyDomain: optional('PROXY_DOMAIN', ''),
+  devServerPort: optionalInt('DEV_SERVER_PORT', 5173),
 }
 
 // Wipe process.env so secrets can never leak to child processes.
@@ -66,4 +69,5 @@ export function validate(): void {
   console.log(`  Dry run: ${config.dryRun}`)
   if (config.ntfyUrl) console.log(`  ntfy: ${config.ntfyUrl}`)
   if (config.githubAppId) console.log(`  GitHub App: ${config.githubAppId}`)
+  if (config.proxyDomain) console.log(`  Proxy: *.${config.proxyDomain} on port ${config.proxyPort} → :${config.devServerPort}`)
 }

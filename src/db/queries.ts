@@ -1,6 +1,14 @@
-import { nanoid } from 'nanoid'
+import { nanoid, customAlphabet } from 'nanoid'
+import { config } from '../config'
 import { db as defaultDB, type DB } from './connection'
 import type { Project, Ticket, Message, MessageType, TicketStatus, ContainerStatus } from '../../shared/types'
+
+const generateTicketId = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz-', 21)
+
+function buildDevUrl(projectName: string, ticketId: string): string | null {
+  if (!config.proxyDomain) return null
+  return `http://${projectName}.${ticketId}.${config.proxyDomain}`
+}
 
 function now(): number {
   return Date.now()
@@ -92,17 +100,19 @@ export async function getTicket(id: string, q: DB = defaultDB): Promise<Ticket |
 }
 
 export async function insertTicket(
+  projectName: string,
   project_id: string,
   title: string,
   description: string,
   priority: number,
   q: DB = defaultDB,
 ): Promise<Ticket> {
-  const id = nanoid()
+  const id = generateTicketId()
   const ts = now()
+  const devUrl = buildDevUrl(projectName, id)
   await q.query(
-    "INSERT INTO tickets (id, project_id, title, description, priority, status, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-    [id, project_id, title, description, priority, 'queued', ts, ts]
+    "INSERT INTO tickets (id, project_id, title, description, priority, status, dev_url, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+    [id, project_id, title, description, priority, 'queued', devUrl, ts, ts]
   )
   return (await getTicket(id, q))!
 }
@@ -270,5 +280,6 @@ function mapTicket(row: Ticket): Ticket {
     started_at: row.started_at ? Number(row.started_at) : undefined,
     completed_at: row.completed_at ? Number(row.completed_at) : undefined,
     error: row.error ?? undefined,
+    dev_url: row.dev_url ?? undefined,
   }
 }

@@ -32,10 +32,20 @@ async function main(): Promise<void> {
     console.log('⚠️  DRY RUN MODE — Docker and Claude will not be used')
   }
 
+  // Start dev proxy if configured
+  let proxyServer: import('http').Server | undefined
+  if (config.proxyDomain) {
+    const { createProxyServer } = await import('./proxy/proxy')
+    proxyServer = createProxyServer()
+    await new Promise<void>((resolve) => proxyServer!.listen(config.proxyPort, '0.0.0.0', resolve))
+    console.log(`Dev proxy listening on port ${config.proxyPort} (*.${config.proxyDomain})`)
+  }
+
   // Graceful shutdown
   const shutdown = async () => {
     console.log('\nShutting down...')
     scheduler.stop()
+    if (proxyServer) await new Promise<void>((resolve) => proxyServer!.close(() => resolve()))
     await provisioner.stopAll()
     await app.close()
     await getPool().end()

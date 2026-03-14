@@ -4,6 +4,12 @@
     <div class="px-5 pt-4 pb-3 border-b border-gray-100 shrink-0">
       <div class="flex items-center gap-2 mb-0.5">
         <h1 class="font-semibold text-lg flex-1 truncate">{{ ticket?.title }}</h1>
+        <a
+          v-if="devUrl"
+          :href="devUrl"
+          target="_blank"
+          class="text-sm text-blue-600 hover:text-blue-800 font-medium shrink-0"
+        >dev</a>
         <StatusChip v-if="ticket" :status="ticketStatus" />
       </div>
       <div v-if="ticket" class="text-sm text-gray-400 flex items-center gap-2">
@@ -195,6 +201,8 @@ const expanded = ref<Set<number>>(new Set())
 let es: EventSource | null = null
 
 const inputDisabled = computed(() => sending.value || ticketStatus.value === 'running' || ticketStatus.value === 'queued')
+
+const devUrl = computed(() => ticket.value?.dev_url ?? null)
 
 const grouped = computed<GroupedMsg[]>(() => {
   const out: GroupedMsg[] = []

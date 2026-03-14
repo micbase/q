@@ -57,6 +57,7 @@ export interface Ticket {
   updated_at: number
   started_at?: number
   completed_at?: number
+  dev_url?: string
 }
 
 export interface Message extends ClaudeEvent {

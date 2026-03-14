@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   status       ticket_status    NOT NULL DEFAULT 'queued',
   container_status container_status NOT NULL DEFAULT 'stopped',
   error        TEXT,
+  dev_url      TEXT,
   created_at   BIGINT           NOT NULL,  -- unix ms
   updated_at   BIGINT           NOT NULL,
   started_at   BIGINT,

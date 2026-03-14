@@ -8,7 +8,7 @@ const LABEL_MANAGED = 'q.managed'
 
 const TOKEN_MAX_AGE_MS = 55 * 60 * 1000 // refresh credentials before 1h expiry
 
-interface ContainerEntry { id: string; credentialsAt?: number }
+interface ContainerEntry { id: string; credentialsAt?: number; ip?: string }
 
 // In-memory map: ticketId → docker container id + credential age (not status — status lives in DB)
 const containers = new Map<string, ContainerEntry>()
@@ -27,6 +27,24 @@ async function refreshCredentials(entry: ContainerEntry, project: Project): Prom
   const token = await getInstallationToken(project.github_repo)
   await setupGitCredentials(entry.id, token)
   entry.credentialsAt = Date.now()
+}
+
+// ─── Container IP ─────────────────────────────────────────────────────────────
+
+export async function getContainerIp(ticketId: string): Promise<string | null> {
+  const entry = containers.get(ticketId)
+  if (!entry) return null
+  if (entry.ip) return entry.ip
+
+  try {
+    const info = await getDocker().getContainer(entry.id).inspect()
+    const ip = info.NetworkSettings?.Networks?.bridge?.IPAddress
+    if (!ip) return null
+    entry.ip = ip
+    return ip
+  } catch {
+    return null
+  }
 }
 
 // ─── Ensure running ───────────────────────────────────────────────────────────

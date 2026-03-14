@@ -40,6 +40,8 @@ src/
     claude-client.ts     # docker exec CLI invocation (NDJSON streaming)
     session.ts           # buildInitialMessages(), isQuestion(), runDrySession()
     notify.ts            # ntfy notifications
+  proxy/
+    proxy.ts             # Dev container HTTP/WebSocket reverse proxy
   api/
     server.ts            # Fastify setup
     tickets.ts           # Ticket CRUD
@@ -89,6 +91,9 @@ MAX_CONCURRENT_TICKETS=2           # how many tickets to run in parallel
 CONTAINER_IDLE_TIMEOUT_MS=600000   # stop container after 10 min idle
 PROJECT_IMAGE=q-project         # Docker image name for project containers
 DRY_RUN=false                   # set true to skip Docker + Claude entirely
+PROXY_DOMAIN=                   # dev proxy domain (empty=disabled); e.g. "dev.localhost"
+PROXY_PORT=3201                 # port for the dev proxy server
+DEV_SERVER_PORT=5173            # port on the container to proxy to (e.g. Vite)
 ```
 
 ## Commands
@@ -158,6 +163,16 @@ Set `DRY_RUN=true` to test the full pipeline without Docker or Claude.
 - Scheduler calls `runDrySession()` directly (same event types)
 - P1/P2 tickets simulate a pause/resume question
 - UI shows an orange "DRY RUN MODE" banner
+
+## Dev Container HTTP Proxy
+
+Set `PROXY_DOMAIN` to enable reverse-proxying into dev servers running inside ticket containers.
+
+- Host pattern: `<project_name>.<ticket_id>.<PROXY_DOMAIN>` (e.g. `myapp.abc123.dev.localhost`)
+- HTTP requests and WebSocket upgrades are forwarded to `containerIp:DEV_SERVER_PORT`
+- Runs on `PROXY_PORT` (default 3201), separate from the API server
+- Container IP is resolved via `getContainerIp()` with a 30s TTL cache
+- Returns 404 (bad host / ticket not found), 503 (container not running), 502 (upstream error)
 
 ## Key Decisions
 
