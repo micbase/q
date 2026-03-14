@@ -40,6 +40,12 @@
             placeholder="owner/repo"
             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <input
+            v-model="newProject.dev_command"
+            type="text"
+            placeholder="Dev command (e.g. npm run dev)"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
           <button
             type="button"
             :disabled="creatingProject || !newProject.name || !newProject.github_repo"
@@ -121,7 +127,7 @@ const router = useRouter()
 
 const projects = ref<Project[]>([])
 const showNewProject = ref(false)
-const newProject = ref({ name: '', github_repo: '' })
+const newProject = ref({ name: '', github_repo: '', dev_command: '' })
 const newProjectError = ref('')
 const creatingProject = ref(false)
 
@@ -150,11 +156,12 @@ async function createProject() {
     const project = await api.createProject({
       name: newProject.value.name.trim(),
       github_repo: newProject.value.github_repo.trim(),
+      dev_command: newProject.value.dev_command.trim() || undefined,
     })
     projects.value = await api.listProjects()
     form.value.project_id = project.id
     showNewProject.value = false
-    newProject.value = { name: '', github_repo: '' }
+    newProject.value = { name: '', github_repo: '', dev_command: '' }
   } catch (err) {
     newProjectError.value = err instanceof Error ? err.message : 'Failed to create project'
   } finally {

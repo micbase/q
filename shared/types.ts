@@ -38,6 +38,7 @@ export interface Project {
   id: string
   name: string
   github_repo?: string
+  dev_command?: string
   status: ProjectStatus
   created_at: number
   updated_at: number

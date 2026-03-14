@@ -15,10 +15,12 @@ function isValidGithubRepo(value: unknown): boolean {
 interface CreateProjectBody {
   name: string
   github_repo?: string
+  dev_command?: string
 }
 
 interface UpdateProjectBody {
   github_repo?: string | null
+  dev_command?: string | null
 }
 
 interface ProjectParams {
@@ -45,11 +47,11 @@ export async function projectRoutes(app: FastifyInstance) {
     if (!/^[a-zA-Z0-9._-]+$/.test(name.trim())) {
       return reply.status(400).send({ error: 'name must contain only alphanumeric characters, hyphens, underscores, and dots' })
     }
-    const { github_repo } = req.body
+    const { github_repo, dev_command } = req.body
     if (github_repo !== undefined && !isValidGithubRepo(github_repo)) {
       return reply.status(400).send({ error: 'github_repo must be in owner/repo format' })
     }
-    const project = await db.insertProject(name.trim(), github_repo?.trim())
+    const project = await db.insertProject(name.trim(), github_repo?.trim(), dev_command?.trim() || undefined)
     return reply.status(201).send(enrichProject(project))
   })
 
@@ -64,12 +66,15 @@ export async function projectRoutes(app: FastifyInstance) {
   app.patch<{ Params: ProjectParams; Body: UpdateProjectBody }>('/projects/:id', async (req, reply) => {
     const project = await db.getProject(req.params.id)
     if (!project) return reply.status(404).send({ error: 'Not found' })
-    const { github_repo } = req.body ?? {}
+    const { github_repo, dev_command } = req.body ?? {}
     if (github_repo !== undefined && github_repo !== null && !isValidGithubRepo(github_repo)) {
       return reply.status(400).send({ error: 'github_repo must be in owner/repo format' })
     }
     if (github_repo !== undefined) {
       await db.updateProjectGithubRepo(req.params.id, github_repo)
+    }
+    if (dev_command !== undefined) {
+      await db.updateProjectDevCommand(req.params.id, dev_command || null)
     }
     const updated = await db.getProject(req.params.id)
     return reply.send(enrichProject(updated!))
