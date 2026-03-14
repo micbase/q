@@ -11,7 +11,7 @@ export async function buildServer() {
   const app = Fastify({ logger: { level: 'warn' } })
 
   // Serve built Vue UI
-  const uiPath = path.join(__dirname, '..', '..', 'ui', 'dist')
+  const uiPath = path.join(__dirname, '..', '..', '..', 'ui', 'dist')
   await app.register(fastifyStatic, {
     root: uiPath,
     prefix: '/',
