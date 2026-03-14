@@ -37,12 +37,12 @@ export async function getProjectByName(name: string, q: DB = defaultDB): Promise
   return rows.length ? mapProject(rows[0]) : null
 }
 
-export async function insertProject(name: string, githubRepo?: string, devCommand?: string, q: DB = defaultDB): Promise<Project> {
+export async function insertProject(name: string, githubRepo?: string, devCommand?: string, devEnvs?: string, q: DB = defaultDB): Promise<Project> {
   const id = nanoid()
   const ts = now()
   await q.query(
-    'INSERT INTO projects (id, name, github_repo, dev_command, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)',
-    [id, name, githubRepo ?? null, devCommand ?? null, ts, ts]
+    'INSERT INTO projects (id, name, github_repo, dev_command, dev_envs, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    [id, name, githubRepo ?? null, devCommand ?? null, devEnvs ?? null, ts, ts]
   )
   return (await getProject(id, q))!
 }
@@ -58,6 +58,13 @@ export async function updateProjectDevCommand(id: string, devCommand: string | n
   await q.query(
     'UPDATE projects SET dev_command = $1, updated_at = $2 WHERE id = $3',
     [devCommand, now(), id]
+  )
+}
+
+export async function updateProjectDevEnvs(id: string, devEnvs: string | null, q: DB = defaultDB): Promise<void> {
+  await q.query(
+    'UPDATE projects SET dev_envs = $1, updated_at = $2 WHERE id = $3',
+    [devEnvs, now(), id]
   )
 }
 
@@ -264,6 +271,7 @@ function mapProject(row: any): Project {
     name: row.name,
     github_repo: row.github_repo ?? undefined,
     dev_command: row.dev_command ?? undefined,
+    dev_envs: row.dev_envs ?? undefined,
     status: row.status,
     created_at: Number(row.created_at),
     updated_at: Number(row.updated_at),

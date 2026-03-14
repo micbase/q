@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS projects (
   name         VARCHAR(255)     NOT NULL,
   github_repo  VARCHAR(255),
   dev_command  TEXT,
+  dev_envs     TEXT,
   status       project_status   NOT NULL DEFAULT 'active',
   created_at   BIGINT           NOT NULL,
   updated_at   BIGINT           NOT NULL

@@ -46,6 +46,12 @@
             placeholder="Dev command (e.g. npm run dev)"
             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <textarea
+            v-model="newProject.dev_envs"
+            rows="3"
+            placeholder="Dev env variables (one per line, e.g. PORT=3000)"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y font-mono text-sm"
+          />
           <button
             type="button"
             :disabled="creatingProject || !newProject.name || !newProject.github_repo"
@@ -127,7 +133,7 @@ const router = useRouter()
 
 const projects = ref<Project[]>([])
 const showNewProject = ref(false)
-const newProject = ref({ name: '', github_repo: '', dev_command: '' })
+const newProject = ref({ name: '', github_repo: '', dev_command: '', dev_envs: '' })
 const newProjectError = ref('')
 const creatingProject = ref(false)
 
@@ -157,11 +163,12 @@ async function createProject() {
       name: newProject.value.name.trim(),
       github_repo: newProject.value.github_repo.trim(),
       dev_command: newProject.value.dev_command.trim() || undefined,
+      dev_envs: newProject.value.dev_envs.trim() || undefined,
     })
     projects.value = await api.listProjects()
     form.value.project_id = project.id
     showNewProject.value = false
-    newProject.value = { name: '', github_repo: '', dev_command: '' }
+    newProject.value = { name: '', github_repo: '', dev_command: '', dev_envs: '' }
   } catch (err) {
     newProjectError.value = err instanceof Error ? err.message : 'Failed to create project'
   } finally {

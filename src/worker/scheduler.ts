@@ -105,7 +105,7 @@ class Scheduler {
         }
         if (project.dev_command) {
           try {
-            await runDevCommand(containerId, project.dev_command, workDir ?? '/workspace')
+            await runDevCommand(containerId, project.dev_command, workDir ?? '/workspace', project.dev_envs)
           } catch (err) {
             console.error(`[scheduler] Failed to start dev server for ${ticket.id}:`, err)
             throw err

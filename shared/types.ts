@@ -39,6 +39,7 @@ export interface Project {
   name: string
   github_repo?: string
   dev_command?: string
+  dev_envs?: string
   status: ProjectStatus
   created_at: number
   updated_at: number
