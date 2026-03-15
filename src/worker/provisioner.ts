@@ -86,6 +86,7 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
   await execInContainer(id, ['chown', '-R', 'claude:claude', '/workspace', '/home/claude/.claude'], logTag)
 
   await setupGitIdentity(id, logTag)
+  await execInContainer(id, ['git', 'config', '--global', '--add', 'safe.directory', '*'], logTag)
 
   const entry: ContainerEntry = { id, logTag }
   await refreshCredentials(entry, project)
