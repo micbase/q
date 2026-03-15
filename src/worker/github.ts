@@ -165,6 +165,9 @@ export async function ensureWorktree(containerId: string, ticketId: string, logT
     console.log(`${t} Created worktree for ${branch} from ${defaultBranch}`)
   }
 
+  // Worktree created as root — fix ownership so claude user can write
+  await execInContainer(containerId, ['chown', '-R', 'claude:claude', wt], logTag)
+
   return wt
 }
 
