@@ -168,7 +168,44 @@ export async function ensureWorktree(containerId: string, ticketId: string, logT
   return wt
 }
 
-/** Remove a ticket's worktree (called on done) */
+/** Commit any dirty state and push the ticket's worktree before container teardown */
+export async function pushWorktree(containerId: string, ticketId: string, logTag: string): Promise<void> {
+  const wt = worktreePath(ticketId)
+  const branch = `q/${ticketId}`
+  const t = `[git ${logTag}]`
+
+  const exists = await execInContainer(containerId, ['test', '-d', wt], logTag).then(() => true, () => false)
+  if (!exists) return
+
+  // Commit any uncommitted changes
+  const status = await execInContainer(containerId, ['git', '-C', wt, 'status', '--porcelain'], logTag)
+  if (status.trim().length > 0) {
+    await execInContainer(containerId, ['git', '-C', wt, 'add', '-A'], logTag)
+    await execInContainer(containerId, [
+      'git', '-C', wt, 'commit', '-m', 'wip: auto-save before container stop',
+    ], logTag)
+    console.log(`${t} Auto-committed dirty worktree`)
+  }
+
+  // Check if there's anything to push
+  const localHead = await execInContainer(containerId, [
+    'git', '-C', wt, 'rev-parse', 'HEAD',
+  ], logTag).catch(() => '')
+  if (!localHead.trim()) return // no commits at all
+
+  const remoteHead = await execInContainer(containerId, [
+    'git', '-C', wt, 'rev-parse', `origin/${branch}`,
+  ], logTag).catch(() => '')
+
+  if (localHead.trim() === remoteHead.trim()) return // already up to date
+
+  await execInContainer(containerId, [
+    'git', '-C', wt, 'push', '-u', 'origin', branch,
+  ], logTag)
+  console.log(`${t} Pushed worktree branch ${branch}`)
+}
+
+/** Remove a ticket's worktree */
 export async function removeWorktree(containerId: string, ticketId: string, logTag: string): Promise<void> {
   const wt = worktreePath(ticketId)
   const exists = await execInContainer(containerId, ['test', '-d', wt], logTag).then(() => true, () => false)

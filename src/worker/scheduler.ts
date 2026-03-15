@@ -4,7 +4,7 @@ import { withTransaction } from '../db/connection'
 import type { ClaudeEvent } from '../../shared/types'
 import { callClaude } from './claude-client'
 import { runDrySession, buildInitialPrompt } from './session'
-import { ensureWorktree, removeWorktree } from './github'
+import { ensureWorktree } from './github'
 import * as provisioner from './provisioner'
 import { runDevCommand } from './dev-command'
 import * as notify from './notify'
@@ -122,10 +122,6 @@ class Scheduler {
             await emitMessage(ticket.id, '', 'done', event.role, { claudeSessionId: event.claude_session_id }, tx)
             await emitTicketStatusChange(ticket.id, 'done', undefined, tx)
           })
-          if (containerId) {
-            await removeWorktree(containerId, ticket.id, logTag!).catch(err =>
-              console.warn(`[scheduler] Failed to remove worktree for ${ticket.id}:`, err))
-          }
           console.log(`[scheduler] Ticket ${ticket.id} completed`)
           await notify.send(`✅ Done: ${ticket.title}`)
           if (!config.dryRun) provisioner.scheduleIdleStop(ticket.id)

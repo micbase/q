@@ -4,7 +4,7 @@ import * as db from '../db/queries'
 import type { Project, ContainerStatus } from '../../shared/types'
 import { getDocker, execInContainer } from './docker'
 import { broker } from '../broker/broker'
-import { getInstallationToken, cloneRepoIfNeeded, setupGitCredentials, setupGitIdentity } from './github'
+import { getInstallationToken, cloneRepoIfNeeded, setupGitCredentials, setupGitIdentity, pushWorktree, removeWorktree } from './github'
 const LABEL_MANAGED = 'q.managed'
 
 const TOKEN_MAX_AGE_MS = 55 * 60 * 1000 // refresh credentials before 1h expiry
@@ -143,6 +143,10 @@ async function stopTicketContainer(ticketId: string): Promise<void> {
 
   console.log(`[provisioner] Stopping container for ticket ${ticketId}`)
   try {
+    await pushWorktree(id, ticketId, entry.logTag).catch(err =>
+      console.warn(`[provisioner] Failed to push worktree for ${ticketId}:`, err))
+    await removeWorktree(id, ticketId, entry.logTag).catch(err =>
+      console.warn(`[provisioner] Failed to remove worktree for ${ticketId}:`, err))
     const container = getDocker().getContainer(id)
     await container.stop({ t: 5 })
     await container.remove()
