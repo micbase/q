@@ -1,3 +1,4 @@
+import fs from 'fs'
 import { config } from '../config'
 import * as db from '../db/queries'
 import type { Project, ContainerStatus } from '../../shared/types'
@@ -62,6 +63,11 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
     return existing.id
   }
 
+  const credFile = `${config.projectsDir}/.claude-sessions/.credentials.json`
+  if (!fs.existsSync(credFile)) {
+    throw new Error(`[provisioner] Missing credentials file: ${credFile}`)
+  }
+
   console.log(`[provisioner] Starting container for ticket ${ticketId} (project ${project.name})`)
   await setContainerStatus(ticketId, 'starting')
 
@@ -72,6 +78,7 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
       Binds: [
         `${config.projectsDir}/${project.name}:/workspace`,
         `${config.projectsDir}/.claude-sessions/${ticketId}:/home/claude/.claude`,
+        `${config.projectsDir}/.claude-sessions/.credentials.json:/home/claude/.claude/.credentials.json`,
       ],
     },
   })
