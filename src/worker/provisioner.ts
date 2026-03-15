@@ -1,4 +1,3 @@
-import fs from 'fs'
 import { config } from '../config'
 import * as db from '../db/queries'
 import type { Project, ContainerStatus } from '../../shared/types'
@@ -61,11 +60,6 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
     cancelIdleTimer(ticketId)
     await refreshCredentials(existing, project)
     return existing.id
-  }
-
-  const credFile = `${config.projectsDir}/.claude-sessions/.credentials.json`
-  if (!fs.existsSync(credFile)) {
-    throw new Error(`[provisioner] Missing credentials file: ${credFile}`)
   }
 
   console.log(`[provisioner] Starting container for ticket ${ticketId} (project ${project.name})`)
