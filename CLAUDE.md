@@ -168,7 +168,7 @@ Set `DRY_RUN=true` to test the full pipeline without Docker or Claude.
 
 Set `PROXY_DOMAIN` to enable reverse-proxying into dev servers running inside ticket containers.
 
-- Host pattern: `<project_name>.<ticket_id>.<PROXY_DOMAIN>` (e.g. `myapp.abc123.dev.localhost`)
+- Host pattern: `<project_name>-<ticket_id>.<PROXY_DOMAIN>` (e.g. `myapp-abc123.dev.localhost`); ticket IDs contain only `[a-z0-9]` (no dashes), so the last `-` in the subdomain separates project name from ticket ID
 - HTTP requests and WebSocket upgrades are forwarded to `containerIp:DEV_SERVER_PORT`
 - Runs on `PROXY_PORT` (default 3201), separate from the API server
 - Container IP is resolved via `getContainerIp()` with a 30s TTL cache

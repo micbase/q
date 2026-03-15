@@ -3,11 +3,11 @@ import { config } from '../config'
 import { db as defaultDB, type DB } from './connection'
 import type { Project, Ticket, Message, MessageType, TicketStatus, ContainerStatus } from '../../shared/types'
 
-const generateTicketId = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz-', 21)
+const generateTicketId = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 21)
 
 function buildDevUrl(projectName: string, ticketId: string): string | null {
   if (!config.proxyDomain) return null
-  return `http://${projectName}.${ticketId}.${config.proxyDomain}`
+  return `http://${projectName}-${ticketId}.${config.proxyDomain}`
 }
 
 function now(): number {

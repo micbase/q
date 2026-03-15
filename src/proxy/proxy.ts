@@ -16,9 +16,9 @@ function parseHost(host: string | undefined): ParsedHost | null {
   const suffix = `.${config.proxyDomain}`
   if (!hostname.endsWith(suffix)) return null
   const prefix = hostname.slice(0, -suffix.length)
-  const dot = prefix.indexOf('.')
-  if (dot < 1 || dot !== prefix.lastIndexOf('.')) return null
-  return { projectName: prefix.slice(0, dot), ticketId: prefix.slice(dot + 1) }
+  const dash = prefix.lastIndexOf('-')
+  if (dash < 1) return null
+  return { projectName: prefix.slice(0, dash), ticketId: prefix.slice(dash + 1) }
 }
 
 async function resolve(host: string | undefined): Promise<{ ip: string } | { error: string; code: number }> {
