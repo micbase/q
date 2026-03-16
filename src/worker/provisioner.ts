@@ -38,7 +38,8 @@ export async function getContainerIp(ticketId: string): Promise<string | null> {
 
   try {
     const info = await getDocker().getContainer(entry.id).inspect()
-    const ip = info.NetworkSettings?.Networks?.bridge?.IPAddress
+    const networks = info.NetworkSettings?.Networks ?? {}
+    const ip = Object.values(networks).find(n => n?.IPAddress)?.IPAddress
     if (!ip) return null
     entry.ip = ip
     return ip
@@ -65,6 +66,7 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
   console.log(`[provisioner] Starting container for ticket ${ticketId} (project ${project.name})`)
   await setContainerStatus(ticketId, 'starting')
 
+  const { HostConfig: extraHostConfig, ...extraOpts } = config.dockerRunOptions
   const container = await getDocker().createContainer({
     Image: config.projectImage,
     Labels: { [LABEL_MANAGED]: 'true' },
@@ -74,7 +76,9 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
         `${config.projectsDir}/.claude-sessions/${ticketId}:/home/claude/.claude`,
         `${config.projectsDir}/.claude-sessions/.credentials.json:/home/claude/.claude/.credentials.json`,
       ],
+      ...extraHostConfig,
     },
+    ...extraOpts,
   })
 
   await container.start()
