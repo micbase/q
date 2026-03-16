@@ -69,7 +69,7 @@ export async function setupGitCredentials(containerId: string, token: string, lo
   await execInContainer(containerId, [
     'sh', '-c',
     `git config --global credential.helper '!f() { echo "username=x-access-token"; echo "password=${token}"; }; f'`,
-  ], logTag)
+  ], logTag, { User: 'claude' })
   console.log(`[git ${logTag}] Credentials configured`)
 }
 
@@ -89,8 +89,8 @@ export async function cloneRepoIfNeeded(containerId: string, repo: string, logTa
 
 /** Configure git user.name and user.email in a running container */
 export async function setupGitIdentity(containerId: string, logTag: string): Promise<void> {
-  await execInContainer(containerId, ['git', 'config', '--global', 'user.name', config.githubCommitName], logTag)
-  await execInContainer(containerId, ['git', 'config', '--global', 'user.email', config.githubCommitEmail], logTag)
+  await execInContainer(containerId, ['git', 'config', '--global', 'user.name', config.githubCommitName], logTag, { User: 'claude' })
+  await execInContainer(containerId, ['git', 'config', '--global', 'user.email', config.githubCommitEmail], logTag, { User: 'claude' })
   console.log(`[git ${logTag}] Identity configured`)
 }
 
