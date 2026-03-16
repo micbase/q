@@ -66,10 +66,12 @@ export async function getInstallationToken(repo: string): Promise<string> {
 
 /** Configure git credentials in a running container using a GitHub installation token */
 export async function setupGitCredentials(containerId: string, token: string, logTag: string): Promise<void> {
-  await execInContainer(containerId, [
+  const cmd = [
     'sh', '-c',
     `git config --global credential.helper '!f() { echo "username=x-access-token"; echo "password=${token}"; }; f'`,
-  ], logTag, { User: 'claude' })
+  ]
+  await execInContainer(containerId, cmd, logTag)
+  await execInContainer(containerId, cmd, logTag, { User: 'claude' })
   console.log(`[git ${logTag}] Credentials configured`)
 }
 
@@ -89,8 +91,10 @@ export async function cloneRepoIfNeeded(containerId: string, repo: string, logTa
 
 /** Configure git user.name and user.email in a running container */
 export async function setupGitIdentity(containerId: string, logTag: string): Promise<void> {
-  await execInContainer(containerId, ['git', 'config', '--global', 'user.name', config.githubCommitName], logTag, { User: 'claude' })
-  await execInContainer(containerId, ['git', 'config', '--global', 'user.email', config.githubCommitEmail], logTag, { User: 'claude' })
+  for (const user of ['root', 'claude']) {
+    await execInContainer(containerId, ['git', 'config', '--global', 'user.name', config.githubCommitName], logTag, { User: user })
+    await execInContainer(containerId, ['git', 'config', '--global', 'user.email', config.githubCommitEmail], logTag, { User: user })
+  }
   console.log(`[git ${logTag}] Identity configured`)
 }
 
