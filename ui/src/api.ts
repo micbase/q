@@ -87,6 +87,16 @@ export const api = {
   restartContainer: (id: string): Promise<void> =>
     request(`/tickets/${id}/container/restart`, { method: 'POST' }),
 
+  // Dev server
+  startDevServer: (id: string): Promise<void> =>
+    request(`/tickets/${id}/dev/start`, { method: 'POST' }),
+
+  stopDevServer: (id: string): Promise<void> =>
+    request(`/tickets/${id}/dev/stop`, { method: 'POST' }),
+
+  restartDevServer: (id: string): Promise<void> =>
+    request(`/tickets/${id}/dev/restart`, { method: 'POST' }),
+
   streamEvents: (id: string, onEvent: (e: StreamEvent) => void, onError?: () => void): EventSource => {
     const es = new EventSource(`${BASE}/tickets/${id}/stream`)
     es.onmessage = e => {

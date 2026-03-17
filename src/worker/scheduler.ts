@@ -6,7 +6,7 @@ import { callClaude } from './claude-client'
 import { runDrySession, buildInitialPrompt } from './session'
 import { ensureWorktree } from './github'
 import * as provisioner from './provisioner'
-import { runDevCommand } from './dev-command'
+import { startDevServer } from './dev-server'
 import * as notify from './notify'
 import { emitMessage, emitTicketStatusChange } from '../broker/emit'
 import ms from 'ms'
@@ -107,7 +107,7 @@ class Scheduler {
         }
         if (project.dev_command) {
           try {
-            await runDevCommand(containerId, project.dev_command, workDir ?? '/workspace', logTag, project.dev_envs)
+            await startDevServer(containerId, ticket.id, project.dev_command, workDir ?? '/workspace', logTag, project.dev_envs)
           } catch (err) {
             console.error(`[scheduler] Failed to start dev server for ${ticket.id}:`, err)
             throw err
