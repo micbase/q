@@ -8,14 +8,20 @@
         line.type === 'remove' ? 'bg-red-50 text-red-900' : '',
         line.type === 'add' ? 'bg-green-50 text-green-900' : '',
         line.type === 'context' ? 'bg-gray-50 text-gray-600' : '',
+        line.type === 'sep' ? 'bg-gray-100 text-gray-400 italic' : '',
       ]"
     >
-      <span class="inline-block w-4 shrink-0 select-none" :class="{
-        'text-red-400': line.type === 'remove',
-        'text-green-500': line.type === 'add',
-        'text-gray-400': line.type === 'context',
-      }">{{ line.type === 'remove' ? '-' : line.type === 'add' ? '+' : ' ' }}</span>
-      <span v-html="line.html"></span>
+      <template v-if="line.type === 'sep'">
+        <span class="select-none">@@ ... @@</span>
+      </template>
+      <template v-else>
+        <span class="inline-block w-4 shrink-0 select-none" :class="{
+          'text-red-400': line.type === 'remove',
+          'text-green-500': line.type === 'add',
+          'text-gray-400': line.type === 'context',
+        }">{{ line.type === 'remove' ? '-' : line.type === 'add' ? '+' : ' ' }}</span>
+        <span v-html="line.html"></span>
+      </template>
     </div>
   </div>
 </template>
@@ -79,9 +85,11 @@ const props = defineProps<{
 }>()
 
 interface DiffLine {
-  type: 'remove' | 'add' | 'context'
+  type: 'remove' | 'add' | 'context' | 'sep'
   html: string
 }
+
+type EditOp = { type: 'equal' | 'delete' | 'insert'; line: string }
 
 function getLang(path: string): string | undefined {
   const basename = path.split('/').pop() ?? ''
@@ -103,19 +111,79 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+function computeOps(a: string[], b: string[]): EditOp[] {
+  const m = a.length, n = b.length
+  if (m === 0 && n === 0) return []
+  // Fall back for very large inputs to avoid O(m*n) memory/time
+  if (m * n > 200000) {
+    return [
+      ...a.map(line => ({ type: 'delete' as const, line })),
+      ...b.map(line => ({ type: 'insert' as const, line })),
+    ]
+  }
+  // LCS-based diff via DP
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
+  for (let i = m - 1; i >= 0; i--) {
+    for (let j = n - 1; j >= 0; j--) {
+      if (a[i] === b[j]) {
+        dp[i][j] = dp[i + 1][j + 1] + 1
+      } else {
+        dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1])
+      }
+    }
+  }
+  const ops: EditOp[] = []
+  let i = 0, j = 0
+  while (i < m && j < n) {
+    if (a[i] === b[j]) {
+      ops.push({ type: 'equal', line: a[i] })
+      i++; j++
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      ops.push({ type: 'delete', line: a[i++] })
+    } else {
+      ops.push({ type: 'insert', line: b[j++] })
+    }
+  }
+  while (i < m) ops.push({ type: 'delete', line: a[i++] })
+  while (j < n) ops.push({ type: 'insert', line: b[j++] })
+  return ops
+}
+
 const diffLines = computed<DiffLine[]>(() => {
   const lang = getLang(props.filePath)
   const oldLines = props.oldString.split('\n')
   const newLines = props.newString.split('\n')
+
+  const ops = computeOps(oldLines, newLines)
+  const CONTEXT = 3
+
+  const changed = new Set<number>()
+  for (let i = 0; i < ops.length; i++) {
+    if (ops[i].type !== 'equal') changed.add(i)
+  }
+  if (changed.size === 0) return []
+
+  const show = new Set<number>()
+  for (const c of changed) {
+    for (let k = Math.max(0, c - CONTEXT); k <= Math.min(ops.length - 1, c + CONTEXT); k++) {
+      show.add(k)
+    }
+  }
+
   const lines: DiffLine[] = []
-
-  for (const l of oldLines) {
-    lines.push({ type: 'remove', html: highlightLine(l, lang) })
+  let prev = -2
+  for (let i = 0; i < ops.length; i++) {
+    if (!show.has(i)) continue
+    if (prev >= 0 && i > prev + 1) {
+      lines.push({ type: 'sep', html: '' })
+    }
+    const op = ops[i]
+    lines.push({
+      type: op.type === 'equal' ? 'context' : op.type === 'delete' ? 'remove' : 'add',
+      html: highlightLine(op.line, lang),
+    })
+    prev = i
   }
-  for (const l of newLines) {
-    lines.push({ type: 'add', html: highlightLine(l, lang) })
-  }
-
   return lines
 })
 </script>
