@@ -145,7 +145,7 @@ export async function stopContainer(ticketId: string): Promise<void> {
   const id = entry.id
   containers.delete(ticketId)
   cancelIdleTimer(ticketId)
-  clearDevServer(ticketId)
+  await clearDevServer(ticketId)
 
   console.log(`[provisioner] Stopping container for ticket ${ticketId}`)
   try {

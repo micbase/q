@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import * as db from '../db/queries'
 import * as provisioner from '../worker/provisioner'
-import * as devServer from '../worker/dev-server'
+import { startDevServer, stopDevServer } from '../worker/dev-server'
 import { config } from '../config'
 
 interface TicketParams {
@@ -17,7 +17,6 @@ export async function containerRoutes(app: FastifyInstance) {
     ])
     const filtered = tickets
       .filter(t => t.status !== 'failed' && t.status !== 'deleted')
-      .map(t => ({ ...t, dev_server_status: devServer.getDevServerStatus(t.id) }))
     return reply.send({ projects, tickets: filtered })
   })
 
@@ -70,7 +69,7 @@ export async function containerRoutes(app: FastifyInstance) {
     const containerId = provisioner.getContainerId(ticket.id)
     if (!containerId) return reply.status(409).send({ error: 'Container is not running' })
     const logTag = provisioner.getContainerTag(ticket.id)
-    await devServer.startDevServer(containerId, ticket.id, project.dev_command, '/workspace', logTag, project.dev_envs)
+    await startDevServer(containerId, ticket.id, project.dev_command, '/workspace', logTag, project.dev_envs)
     return reply.status(204).send()
   })
 
@@ -79,7 +78,7 @@ export async function containerRoutes(app: FastifyInstance) {
     if (config.dryRun) return reply.status(400).send({ error: 'Not available in dry run mode' })
     const ticket = await db.getTicket(req.params.id)
     if (!ticket) return reply.status(404).send({ error: 'Not found' })
-    await devServer.stopDevServer(ticket.id)
+    await stopDevServer(ticket.id)
     return reply.status(204).send()
   })
 
@@ -94,8 +93,8 @@ export async function containerRoutes(app: FastifyInstance) {
     const containerId = provisioner.getContainerId(ticket.id)
     if (!containerId) return reply.status(409).send({ error: 'Container is not running' })
     const logTag = provisioner.getContainerTag(ticket.id)
-    await devServer.stopDevServer(ticket.id)
-    await devServer.startDevServer(containerId, ticket.id, project.dev_command, '/workspace', logTag, project.dev_envs)
+    await stopDevServer(ticket.id)
+    await startDevServer(containerId, ticket.id, project.dev_command, '/workspace', logTag, project.dev_envs)
     return reply.status(204).send()
   })
 }

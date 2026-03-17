@@ -4,6 +4,7 @@ CREATE DATABASE q;
 CREATE TYPE project_status AS ENUM ('active', 'archived', 'deleted');
 CREATE TYPE ticket_status AS ENUM ('queued', 'running', 'paused', 'done', 'failed', 'deleted');
 CREATE TYPE container_status AS ENUM ('stopped', 'starting', 'running');
+CREATE TYPE dev_server_status AS ENUM ('stopped', 'starting', 'running', 'error');
 CREATE TYPE message_role AS ENUM ('user', 'assistant', 'system');
 
 CREATE TABLE IF NOT EXISTS projects (
@@ -25,7 +26,8 @@ CREATE TABLE IF NOT EXISTS tickets (
   priority     SMALLINT         NOT NULL DEFAULT 3,
   -- 1=Critical 2=High 3=Normal 4=Low 5=Whenever
   status       ticket_status    NOT NULL DEFAULT 'queued',
-  container_status container_status NOT NULL DEFAULT 'stopped',
+  container_status   container_status   NOT NULL DEFAULT 'stopped',
+  dev_server_status  dev_server_status  NOT NULL DEFAULT 'stopped',
   error        TEXT,
   dev_url      TEXT,
   created_at   BIGINT           NOT NULL,  -- unix ms

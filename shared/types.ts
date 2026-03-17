@@ -55,7 +55,7 @@ export interface Ticket {
   priority: number        // 1-5
   status: TicketStatus
   container_status: ContainerStatus
-  dev_server_status?: DevServerStatus  // in-memory only, not persisted to DB
+  dev_server_status: DevServerStatus
   error?: string
   created_at: number      // unix ms
   updated_at: number

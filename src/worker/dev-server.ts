@@ -1,6 +1,7 @@
 import { execInContainer, execInteractive } from './docker'
 import { broker } from '../broker/broker'
 import { config } from '../config'
+import * as db from '../db/queries'
 import type { DevServerStatus } from '../../shared/types'
 
 function parseEnvs(devEnvs?: string): string[] {
@@ -24,14 +25,11 @@ interface DevServerEntry {
 // In-memory map: ticketId → dev server state
 const servers = new Map<string, DevServerEntry>()
 
-function broadcastStatus(ticketId: string, status: DevServerStatus): void {
-  broker.publish({ type: 'DevServerStatusChange', ticket_id: ticketId, dev_server_status: status })
-}
-
-function setEntryStatus(ticketId: string, status: DevServerStatus): void {
+async function setStatus(ticketId: string, status: DevServerStatus): Promise<void> {
   const entry = servers.get(ticketId)
   if (entry) entry.status = status
-  broadcastStatus(ticketId, status)
+  await db.updateTicketDevServerStatus(ticketId, status)
+  broker.publish({ type: 'DevServerStatusChange', ticket_id: ticketId, dev_server_status: status })
 }
 
 export function getDevServerStatus(ticketId: string): DevServerStatus {
@@ -59,7 +57,7 @@ export async function startDevServer(
     devEnvs,
   }
   servers.set(ticketId, entry)
-  broadcastStatus(ticketId, 'starting')
+  await setStatus(ticketId, 'starting')
 
   const t = `[dev ${logTag}]`
   console.log(`${t} Running in ${workDir}: ${command}`)
@@ -79,8 +77,7 @@ export async function startDevServer(
     console.warn(`${t} Could not inspect exec PID:`, err)
   }
 
-  entry.status = 'running'
-  broadcastStatus(ticketId, 'running')
+  await setStatus(ticketId, 'running')
 
   stderr.on('data', (chunk: Buffer) => {
     console.error(`${t} ${chunk.toString().trimEnd()}`)
@@ -89,32 +86,23 @@ export async function startDevServer(
     console.log(`${t} ${chunk.toString().trimEnd()}`)
   })
 
-  // Detect process exit
+  // Detect process exit — fire-and-forget the async setStatus calls
+  const onExit = (eventStatus: DevServerStatus) => {
+    const current = servers.get(ticketId)
+    if (!current || current.pid !== entry.pid) return
+    servers.delete(ticketId)
+    setStatus(ticketId, eventStatus).catch(err =>
+      console.error(`${t} Failed to persist dev server status:`, err))
+  }
+
   duplex.on('end', () => {
-    const current = servers.get(ticketId)
-    if (current && current.pid === entry.pid) {
-      console.log(`${t} Dev server exited`)
-      current.status = 'stopped'
-      broadcastStatus(ticketId, 'stopped')
-      servers.delete(ticketId)
-    }
+    console.log(`${t} Dev server exited`)
+    onExit('stopped')
   })
-  duplex.on('close', () => {
-    const current = servers.get(ticketId)
-    if (current && current.pid === entry.pid) {
-      current.status = 'stopped'
-      broadcastStatus(ticketId, 'stopped')
-      servers.delete(ticketId)
-    }
-  })
+  duplex.on('close', () => onExit('stopped'))
   duplex.on('error', (err: Error) => {
     console.error(`${t} Dev server stream error:`, err)
-    const current = servers.get(ticketId)
-    if (current && current.pid === entry.pid) {
-      current.status = 'error'
-      broadcastStatus(ticketId, 'error')
-      servers.delete(ticketId)
-    }
+    onExit('error')
   })
 }
 
@@ -127,14 +115,13 @@ export async function stopDevServer(ticketId: string): Promise<void> {
 
   if (entry.pid > 0) {
     try {
-      // Kill the process group to catch child processes spawned by the shell
       await execInContainer(entry.containerId, ['kill', '-9', String(entry.pid)], entry.logTag, { User: 'root' })
     } catch {
       // Process may have already exited — that's fine
     }
   }
 
-  broadcastStatus(ticketId, 'stopped')
+  await setStatus(ticketId, 'stopped')
 }
 
 /** Restart the dev server for a ticket (stop then start with same params) */
@@ -147,9 +134,9 @@ export async function restartDevServer(ticketId: string): Promise<void> {
 }
 
 /** Clear state when a container is stopped (no kill needed, container is gone) */
-export function clearDevServer(ticketId: string): void {
+export async function clearDevServer(ticketId: string): Promise<void> {
   const entry = servers.get(ticketId)
   if (!entry) return
   servers.delete(ticketId)
-  broadcastStatus(ticketId, 'stopped')
+  await setStatus(ticketId, 'stopped')
 }
