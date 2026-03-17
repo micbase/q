@@ -1,6 +1,7 @@
 export type TicketStatus = 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'deleted'
 export type ProjectStatus = 'active' | 'archived' | 'deleted'
 export type ContainerStatus = 'stopped' | 'starting' | 'running'
+export type DevServerStatus = 'stopped' | 'starting' | 'running' | 'error'
 
 // Message classification stored in DB
 export type MessageType = 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'done' | 'paused' | 'error'
@@ -25,7 +26,7 @@ export interface ClaudeEvent extends ToolFields {
 }
 
 // SSE event sent to frontend
-export type StreamEventType = 'TicketStatusChange' | 'ContainerStatusChange' | 'NewMessage'
+export type StreamEventType = 'TicketStatusChange' | 'ContainerStatusChange' | 'DevServerStatusChange' | 'NewMessage'
 
 export interface StreamEvent extends Partial<Omit<ClaudeEvent, 'type'>> {
   type: StreamEventType
@@ -33,6 +34,7 @@ export interface StreamEvent extends Partial<Omit<ClaudeEvent, 'type'>> {
   message_type?: MessageType
   ticket_status?: TicketStatus
   container_status?: ContainerStatus
+  dev_server_status?: DevServerStatus
 }
 export interface Project {
   id: string
@@ -53,6 +55,7 @@ export interface Ticket {
   priority: number        // 1-5
   status: TicketStatus
   container_status: ContainerStatus
+  dev_server_status: DevServerStatus
   error?: string
   created_at: number      // unix ms
   updated_at: number

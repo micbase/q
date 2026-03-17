@@ -4,6 +4,7 @@ import type { Project, ContainerStatus } from '../../shared/types'
 import { getDocker, execInContainer } from './docker'
 import { broker } from '../broker/broker'
 import { getInstallationToken, cloneRepoIfNeeded, setupGitCredentials, setupGitIdentity, pushWorktree, removeWorktree } from './github'
+import { clearDevServer } from './dev-server'
 const LABEL_MANAGED = 'q.managed'
 
 const TOKEN_MAX_AGE_MS = 55 * 60 * 1000 // refresh credentials before 1h expiry
@@ -51,6 +52,11 @@ export async function getContainerIp(ticketId: string): Promise<string | null> {
 /** Get the log tag for a ticket's container */
 export function getContainerTag(ticketId: string): string {
   return containers.get(ticketId)?.logTag ?? ticketId
+}
+
+/** Get the Docker container ID for a ticket (if running) */
+export function getContainerId(ticketId: string): string | undefined {
+  return containers.get(ticketId)?.id
 }
 
 // ─── Ensure running ───────────────────────────────────────────────────────────
@@ -139,6 +145,7 @@ export async function stopContainer(ticketId: string): Promise<void> {
   const id = entry.id
   containers.delete(ticketId)
   cancelIdleTimer(ticketId)
+  await clearDevServer(ticketId)
 
   console.log(`[provisioner] Stopping container for ticket ${ticketId}`)
   try {

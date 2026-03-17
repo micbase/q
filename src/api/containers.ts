@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import * as db from '../db/queries'
 import * as provisioner from '../worker/provisioner'
+import { startDevServer, stopDevServer } from '../worker/dev-server'
 import { config } from '../config'
 
 interface TicketParams {
@@ -14,7 +15,8 @@ export async function containerRoutes(app: FastifyInstance) {
       db.listTickets(),
       db.listProjects(),
     ])
-    const filtered = tickets.filter(t => t.status !== 'failed' && t.status !== 'deleted')
+    const filtered = tickets
+      .filter(t => t.status !== 'failed' && t.status !== 'deleted')
     return reply.send({ projects, tickets: filtered })
   })
 
@@ -53,6 +55,49 @@ export async function containerRoutes(app: FastifyInstance) {
     if (!project) return reply.status(404).send({ error: 'Project not found' })
     await provisioner.stopContainer(ticket.id)
     await provisioner.ensureRunning(project, ticket.id)
+    return reply.status(204).send()
+  })
+
+  // POST /api/tickets/:id/dev/start
+  app.post<{ Params: TicketParams }>('/tickets/:id/dev/start', async (req, reply) => {
+    if (config.dryRun) return reply.status(400).send({ error: 'Not available in dry run mode' })
+    const ticket = await db.getTicket(req.params.id)
+    if (!ticket) return reply.status(404).send({ error: 'Not found' })
+    const project = await db.getProject(ticket.project_id)
+    if (!project) return reply.status(404).send({ error: 'Project not found' })
+    if (!project.dev_command) return reply.status(400).send({ error: 'No dev command configured for this project' })
+    const containerId = provisioner.getContainerId(ticket.id)
+    if (!containerId) return reply.status(409).send({ error: 'Container is not running' })
+    const logTag = provisioner.getContainerTag(ticket.id)
+    await startDevServer(containerId, ticket.id, project.dev_command, '/workspace', logTag, project.dev_envs)
+    return reply.status(204).send()
+  })
+
+  // POST /api/tickets/:id/dev/stop
+  app.post<{ Params: TicketParams }>('/tickets/:id/dev/stop', async (req, reply) => {
+    if (config.dryRun) return reply.status(400).send({ error: 'Not available in dry run mode' })
+    const ticket = await db.getTicket(req.params.id)
+    if (!ticket) return reply.status(404).send({ error: 'Not found' })
+    const containerId = provisioner.getContainerId(ticket.id)
+    if (!containerId) return reply.status(409).send({ error: 'Container is not running' })
+    const logTag = provisioner.getContainerTag(ticket.id)
+    await stopDevServer(ticket.id, containerId, logTag)
+    return reply.status(204).send()
+  })
+
+  // POST /api/tickets/:id/dev/restart
+  app.post<{ Params: TicketParams }>('/tickets/:id/dev/restart', async (req, reply) => {
+    if (config.dryRun) return reply.status(400).send({ error: 'Not available in dry run mode' })
+    const ticket = await db.getTicket(req.params.id)
+    if (!ticket) return reply.status(404).send({ error: 'Not found' })
+    const project = await db.getProject(ticket.project_id)
+    if (!project) return reply.status(404).send({ error: 'Project not found' })
+    if (!project.dev_command) return reply.status(400).send({ error: 'No dev command configured for this project' })
+    const containerId = provisioner.getContainerId(ticket.id)
+    if (!containerId) return reply.status(409).send({ error: 'Container is not running' })
+    const logTag = provisioner.getContainerTag(ticket.id)
+    await stopDevServer(ticket.id, containerId, logTag)
+    await startDevServer(containerId, ticket.id, project.dev_command, '/workspace', logTag, project.dev_envs)
     return reply.status(204).send()
   })
 }

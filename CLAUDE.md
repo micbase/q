@@ -122,7 +122,16 @@ Tables: `projects`, `tickets`, `messages`
 
 - `tickets.project_id` references `projects.id`
 - `tickets.container_status` tracks the Docker container lifecycle (`stopped` / `starting` / `running`)
+- `tickets.dev_server_status` tracks the dev server process (`stopped` / `starting` / `running` / `error`)
 - Conversation history is derived from `messages` on the fly via `getConversation()`
+
+### Schema changes
+
+**Never modify `sql/1.sql`** — it is the initial bootstrap only. All schema changes must be written as a new numbered migration file (e.g. `sql/2.sql`, `sql/3.sql`) and applied with:
+
+```bash
+psql -U postgres -d q -f sql/<N>.sql
+```
 
 ## Ticket Containers
 

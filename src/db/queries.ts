@@ -1,7 +1,7 @@
 import { nanoid, customAlphabet } from 'nanoid'
 import { config } from '../config'
 import { db as defaultDB, type DB } from './connection'
-import type { Project, Ticket, Message, MessageType, TicketStatus, ContainerStatus } from '../../shared/types'
+import type { Project, Ticket, Message, MessageType, TicketStatus, ContainerStatus, DevServerStatus } from '../../shared/types'
 
 const generateTicketId = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 21)
 
@@ -184,6 +184,13 @@ export async function updateTicketContainerStatus(id: string, containerStatus: C
   )
 }
 
+export async function updateTicketDevServerStatus(id: string, devServerStatus: DevServerStatus, q: DB = defaultDB): Promise<void> {
+  await q.query(
+    'UPDATE tickets SET dev_server_status = $1, updated_at = $2 WHERE id = $3',
+    [devServerStatus, now(), id]
+  )
+}
+
 export async function countQueuedTickets(q: DB = defaultDB): Promise<number> {
   const { rows } = await q.query(
     "SELECT COUNT(*) as cnt FROM tickets WHERE status = 'queued'"
@@ -283,6 +290,7 @@ function mapTicket(row: Ticket): Ticket {
     ...row,
     priority: Number(row.priority),
     container_status: row.container_status ?? 'stopped',
+    dev_server_status: row.dev_server_status ?? 'stopped',
     created_at: Number(row.created_at),
     updated_at: Number(row.updated_at),
     started_at: row.started_at ? Number(row.started_at) : undefined,
