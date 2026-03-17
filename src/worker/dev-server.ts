@@ -14,7 +14,6 @@ function parseEnvs(devEnvs?: string): string[] {
 
 interface DevServerEntry {
   pid: number
-  status: DevServerStatus
   logTag: string
   containerId: string
   command: string
@@ -26,14 +25,8 @@ interface DevServerEntry {
 const servers = new Map<string, DevServerEntry>()
 
 async function setStatus(ticketId: string, status: DevServerStatus): Promise<void> {
-  const entry = servers.get(ticketId)
-  if (entry) entry.status = status
   await db.updateTicketDevServerStatus(ticketId, status)
   broker.publish({ type: 'DevServerStatusChange', ticket_id: ticketId, dev_server_status: status })
-}
-
-export function getDevServerStatus(ticketId: string): DevServerStatus {
-  return servers.get(ticketId)?.status ?? 'stopped'
 }
 
 export async function startDevServer(
@@ -49,7 +42,6 @@ export async function startDevServer(
 
   const entry: DevServerEntry = {
     pid: 0,
-    status: 'starting',
     logTag,
     containerId,
     command,
@@ -86,11 +78,12 @@ export async function startDevServer(
     console.log(`${t} ${chunk.toString().trimEnd()}`)
   })
 
-  // Detect process exit — fire-and-forget the async setStatus calls
+  // Detect process exit — deduplicate end/close with a flag, fire-and-forget DB write
+  let exited = false
   const onExit = (eventStatus: DevServerStatus) => {
-    const current = servers.get(ticketId)
-    if (!current || current.pid !== entry.pid) return
-    servers.delete(ticketId)
+    if (exited) return
+    exited = true
+    if (servers.get(ticketId) === entry) servers.delete(ticketId)
     setStatus(ticketId, eventStatus).catch(err =>
       console.error(`${t} Failed to persist dev server status:`, err))
   }
