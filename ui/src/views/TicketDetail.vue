@@ -56,7 +56,7 @@
               <span class="text-purple-400">{{ expanded.has(g.idx) ? '▼' : '▶' }}</span>
               <span class="font-semibold text-purple-700 flex-1">Thinking</span>
             </div>
-            <div v-if="expanded.has(g.idx)" class="px-3 py-2 text-sm text-purple-900 whitespace-pre-wrap max-h-96 overflow-y-auto bg-purple-50/50 border-t border-purple-200">{{ g.msg!.content }}</div>
+            <div v-if="expanded.has(g.idx)" class="px-3 py-2 text-sm text-purple-900 whitespace-pre-wrap bg-purple-50/50 border-t border-purple-200">{{ g.msg!.content }}</div>
           </div>
         </div>
 
@@ -97,7 +97,7 @@
             </template>
 
             <!-- Expanded: tool input (non-Edit) -->
-            <template v-else-if="expanded.has(g.idx) && g.use?.tool_name">
+            <template v-else-if="expanded.has(g.idx) && g.use?.tool_name && isExpandable(g.use.tool_name)">
               <div v-if="toolBody(g.use.tool_name, g.use.content)"
                 class="px-3 py-2 font-mono text-xs text-blue-900 whitespace-pre-wrap max-h-64 overflow-y-auto bg-blue-50 border-t border-gray-300">{{ toolBody(g.use.tool_name, g.use.content) }}</div>
 
@@ -107,6 +107,26 @@
                 g.result.is_error ? 'bg-red-50 text-red-800' : 'bg-gray-50 text-gray-700'
               ]">{{ g.result.content }}</div>
             </template>
+          </div>
+        </div>
+
+        <!-- Read group (multiple consecutive Reads collapsed into one row) -->
+        <div v-else-if="g.kind === 'read_group'" class="flex justify-start">
+          <div class="border border-gray-300 rounded-lg text-sm overflow-hidden max-w-full w-full">
+            <div
+              @click="g.reads!.length > 1 && toggleExpanded(g.idx)"
+              :class="['flex items-center gap-2 px-3 py-1.5 w-full text-left bg-gray-100', g.reads!.length > 1 ? 'cursor-pointer hover:bg-gray-200' : '']"
+            >
+              <span v-if="g.reads!.length > 1" class="text-gray-400">{{ expanded.has(g.idx) ? '▼' : '▶' }}</span>
+              <span class="font-semibold text-gray-700 truncate flex-1">
+                {{ g.reads!.length === 1 ? toolTitle('Read', g.reads![0].use.content) : `Read ${g.reads!.length} files` }}
+              </span>
+            </div>
+            <div v-if="g.reads!.length > 1 && expanded.has(g.idx)" class="border-t border-gray-200 divide-y divide-gray-100">
+              <div v-for="r in g.reads" :key="r.idx" class="px-3 py-1.5 font-mono text-xs text-gray-600">
+                {{ readFilePath(r.use.content) }}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -178,11 +198,18 @@ interface DisplayMsg {
   parent_tool_use_id?: string
 }
 
+interface ReadEntry {
+  use: DisplayMsg
+  result?: DisplayMsg
+  idx: number
+}
+
 interface GroupedMsg {
-  kind: 'msg' | 'tool_pair'
+  kind: 'msg' | 'tool_pair' | 'read_group'
   msg?: DisplayMsg          // for kind === 'msg'
   use?: DisplayMsg          // for kind === 'tool_pair'
   result?: DisplayMsg       // for kind === 'tool_pair' (may arrive later)
+  reads?: ReadEntry[]       // for kind === 'read_group'
   idx: number               // original index for expand tracking
 }
 
@@ -235,7 +262,17 @@ const grouped = computed<GroupedMsg[]>(() => {
         continue
       }
       const result = msgs[i].tool_use_id ? resultsByUseId.get(msgs[i].tool_use_id!) : undefined
-      out.push({ kind: 'tool_pair', use: msgs[i], result, idx: i })
+      // Group consecutive Read calls into a single collapsible row
+      if (msgs[i].tool_name === 'Read') {
+        const last = out[out.length - 1]
+        if (last?.kind === 'read_group') {
+          last.reads!.push({ use: msgs[i], result, idx: i })
+        } else {
+          out.push({ kind: 'read_group', reads: [{ use: msgs[i], result, idx: i }], idx: i })
+        }
+      } else {
+        out.push({ kind: 'tool_pair', use: msgs[i], result, idx: i })
+      }
     } else if (msgs[i].message_type === 'tool_result') {
       if (!matchedResults.has(i)) {
         out.push({ kind: 'tool_pair', result: msgs[i], idx: i })
@@ -303,7 +340,14 @@ function todoItems(content: string): { id: string; content: string; status: stri
 }
 
 function isExpandable(name: string): boolean {
-  return name !== 'Read' && name !== 'TodoWrite'
+  return name !== 'Read' && name !== 'TodoWrite' && name !== 'Glob' && name !== 'ToolSearch'
+}
+
+function readFilePath(content: string): string {
+  try {
+    const json = JSON.parse(content)
+    return json.file_path ?? content
+  } catch { return content }
 }
 
 function toggleExpanded(i: number) {

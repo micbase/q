@@ -8,20 +8,27 @@
         line.type === 'remove' ? 'bg-red-50 text-red-900' : '',
         line.type === 'add' ? 'bg-green-50 text-green-900' : '',
         line.type === 'context' ? 'bg-gray-50 text-gray-600' : '',
+        line.type === 'sep' ? 'bg-gray-100 text-gray-400 italic' : '',
       ]"
     >
-      <span class="inline-block w-4 shrink-0 select-none" :class="{
-        'text-red-400': line.type === 'remove',
-        'text-green-500': line.type === 'add',
-        'text-gray-400': line.type === 'context',
-      }">{{ line.type === 'remove' ? '-' : line.type === 'add' ? '+' : ' ' }}</span>
-      <span v-html="line.html"></span>
+      <template v-if="line.type === 'sep'">
+        <span class="select-none">@@ ... @@</span>
+      </template>
+      <template v-else>
+        <span class="inline-block w-4 shrink-0 select-none" :class="{
+          'text-red-400': line.type === 'remove',
+          'text-green-500': line.type === 'add',
+          'text-gray-400': line.type === 'context',
+        }">{{ line.type === 'remove' ? '-' : line.type === 'add' ? '+' : ' ' }}</span>
+        <span v-html="line.html"></span>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { diffLines } from 'diff'
 import hljs from 'highlight.js/lib/core'
 
 // Register common languages
@@ -79,7 +86,7 @@ const props = defineProps<{
 }>()
 
 interface DiffLine {
-  type: 'remove' | 'add' | 'context'
+  type: 'remove' | 'add' | 'context' | 'sep'
   html: string
 }
 
@@ -105,17 +112,43 @@ function escapeHtml(s: string): string {
 
 const diffLines = computed<DiffLine[]>(() => {
   const lang = getLang(props.filePath)
-  const oldLines = props.oldString.split('\n')
-  const newLines = props.newString.split('\n')
+  const CONTEXT = 3
+
+  // Each chunk: { value: string, added?: bool, removed?: bool }
+  const chunks = diffLines(props.oldString, props.newString)
+
+  // Expand chunks into per-line ops
+  type Op = { type: 'context' | 'remove' | 'add'; text: string }
+  const ops: Op[] = []
+  for (const chunk of chunks) {
+    const type = chunk.added ? 'add' : chunk.removed ? 'remove' : 'context'
+    const chunkLines = chunk.value.split('\n')
+    // diffLines appends a trailing empty string when value ends with \n — drop it
+    if (chunkLines[chunkLines.length - 1] === '') chunkLines.pop()
+    for (const text of chunkLines) ops.push({ type, text })
+  }
+
+  const changed = new Set<number>()
+  for (let i = 0; i < ops.length; i++) {
+    if (ops[i].type !== 'context') changed.add(i)
+  }
+  if (changed.size === 0) return []
+
+  const show = new Set<number>()
+  for (const c of changed) {
+    for (let k = Math.max(0, c - CONTEXT); k <= Math.min(ops.length - 1, c + CONTEXT); k++) {
+      show.add(k)
+    }
+  }
+
   const lines: DiffLine[] = []
-
-  for (const l of oldLines) {
-    lines.push({ type: 'remove', html: highlightLine(l, lang) })
+  let prev = -2
+  for (let i = 0; i < ops.length; i++) {
+    if (!show.has(i)) continue
+    if (prev >= 0 && i > prev + 1) lines.push({ type: 'sep', html: '' })
+    lines.push({ type: ops[i].type, html: highlightLine(ops[i].text, lang) })
+    prev = i
   }
-  for (const l of newLines) {
-    lines.push({ type: 'add', html: highlightLine(l, lang) })
-  }
-
   return lines
 })
 </script>
