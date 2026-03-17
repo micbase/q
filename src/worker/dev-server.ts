@@ -108,7 +108,9 @@ export async function stopDevServer(ticketId: string): Promise<void> {
 
   if (entry.pid > 0) {
     try {
-      await execInContainer(entry.containerId, ['kill', '-9', String(entry.pid)], entry.logTag, { User: 'root' })
+      // Kill the entire process group (negative PID) so background children
+      // spawned with & are also terminated (e.g. "npm start & cd ui && npm run dev")
+      await execInContainer(entry.containerId, ['kill', '-9', `-${entry.pid}`], entry.logTag, { User: 'root' })
     } catch {
       // Process may have already exited — that's fine
     }
