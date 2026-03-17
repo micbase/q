@@ -1,5 +1,6 @@
 import Docker from 'dockerode'
 import { PassThrough } from 'stream'
+import { config } from '../config'
 
 let docker: Docker | null = null
 
@@ -23,7 +24,7 @@ export async function execInContainer(containerId: string, cmd: string[], logTag
     Cmd: cmd,
     AttachStdout: true,
     AttachStderr: true,
-    User: 'root',
+    User: config.containerUser,
     ...opts,
   })
   const stream = await exec.start({})
@@ -70,7 +71,7 @@ export async function execInteractive(containerId: string, cmd: string[], opts?:
     AttachStdin: true,
     AttachStdout: true,
     AttachStderr: true,
-    User: 'root',
+    User: config.containerUser,
     ...opts,
   })
   const duplex = await exec.start({ hijack: true, stdin: true })

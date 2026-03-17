@@ -48,6 +48,7 @@ export const config = {
   proxyDomain: optional('PROXY_DOMAIN', ''),
   devServerPort: optionalInt('DEV_SERVER_PORT', 5173),
   dockerRunOptions: JSON.parse(optional('DOCKER_RUN_OPTIONS', '{}')),
+  containerUser: optional('CONTAINER_USER', 'dev'),
 }
 
 // Wipe process.env so secrets can never leak to child processes.
@@ -67,6 +68,7 @@ export function validate(): void {
   console.log(`[config]   Container idle timeout: ${config.containerIdleTimeoutMs}ms`)
   console.log(`[config]   Projects dir: ${config.projectsDir}`)
   console.log(`[config]   Project image: ${config.projectImage}`)
+  console.log(`[config]   Container user: ${config.containerUser}`)
   console.log(`[config]   Dry run: ${config.dryRun}`)
   if (config.ntfyUrl) console.log(`[config]   ntfy: ${config.ntfyUrl}`)
   if (config.githubAppId) console.log(`[config]   GitHub App: ${config.githubAppId}`)

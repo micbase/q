@@ -73,8 +73,8 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
     HostConfig: {
       Binds: [
         `${config.projectsDir}/${project.name}:/workspace`,
-        `${config.projectsDir}/.claude-sessions/${ticketId}:/home/claude/.claude`,
-        `${config.projectsDir}/.claude-sessions/.credentials.json:/home/claude/.claude/.credentials.json`,
+        `${config.projectsDir}/.claude-sessions/${ticketId}:/home/${config.containerUser}/.claude`,
+        `${config.projectsDir}/.claude-sessions/.credentials.json:/home/${config.containerUser}/.claude/.credentials.json`,
       ],
       ...extraHostConfig,
     },
@@ -87,12 +87,12 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
   const id = info.Id
   const logTag = `${project.name} ${ticketId} ${id.slice(0, 12)}`
 
-  // Bind-mounted dirs are owned by host UID — chown so claude user can write
-  await execInContainer(id, ['chown', '-R', 'claude:claude', '/workspace', '/home/claude/.claude'], logTag)
+  const user = config.containerUser
+  // Bind-mounted dirs are owned by host UID — chown mount points (not recursive) so container user can write
+  await execInContainer(id, ['chown', `${user}:${user}`, '/workspace', `/home/${user}/.claude`], logTag, { User: 'root' })
 
   await setupGitIdentity(id, logTag)
   await execInContainer(id, ['git', 'config', '--global', '--add', 'safe.directory', '*'], logTag)
-  await execInContainer(id, ['git', 'config', '--global', '--add', 'safe.directory', '*'], logTag, { User: 'claude' })
 
   const entry: ContainerEntry = { id, logTag }
   await refreshCredentials(entry, project)

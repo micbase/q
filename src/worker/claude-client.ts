@@ -51,7 +51,6 @@ export async function* callClaude(
 
   const { exec, duplex, stdout, stderr } = await execInteractive(containerId, cmd, {
     WorkingDir: workDir ?? '/workspace',
-    User: 'claude',
   })
 
   console.log(`${t} exec started, writing prompt to stdin`)

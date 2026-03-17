@@ -66,12 +66,10 @@ export async function getInstallationToken(repo: string): Promise<string> {
 
 /** Configure git credentials in a running container using a GitHub installation token */
 export async function setupGitCredentials(containerId: string, token: string, logTag: string): Promise<void> {
-  const cmd = [
+  await execInContainer(containerId, [
     'sh', '-c',
     `git config --global credential.helper '!f() { echo "username=x-access-token"; echo "password=${token}"; }; f'`,
-  ]
-  await execInContainer(containerId, cmd, logTag)
-  await execInContainer(containerId, cmd, logTag, { User: 'claude' })
+  ], logTag)
   console.log(`[git ${logTag}] Credentials configured`)
 }
 
@@ -91,10 +89,8 @@ export async function cloneRepoIfNeeded(containerId: string, repo: string, logTa
 
 /** Configure git user.name and user.email in a running container */
 export async function setupGitIdentity(containerId: string, logTag: string): Promise<void> {
-  for (const user of ['root', 'claude']) {
-    await execInContainer(containerId, ['git', 'config', '--global', 'user.name', config.githubCommitName], logTag, { User: user })
-    await execInContainer(containerId, ['git', 'config', '--global', 'user.email', config.githubCommitEmail], logTag, { User: user })
-  }
+  await execInContainer(containerId, ['git', 'config', '--global', 'user.name', config.githubCommitName], logTag)
+  await execInContainer(containerId, ['git', 'config', '--global', 'user.email', config.githubCommitEmail], logTag)
   console.log(`[git ${logTag}] Identity configured`)
 }
 
@@ -169,9 +165,6 @@ export async function ensureWorktree(containerId: string, ticketId: string, logT
     console.log(`${t} Created worktree for ${branch} from ${defaultBranch}`)
   }
 
-  // Worktree created as root — fix ownership so claude user can write
-  await execInContainer(containerId, ['chown', '-R', 'claude:claude', wt], logTag)
-
   return wt
 }
 
@@ -222,4 +215,3 @@ export async function removeWorktree(containerId: string, ticketId: string, logT
   await execInContainer(containerId, ['git', '-C', '/workspace', 'worktree', 'prune'], logTag)
   console.log(`[git ${logTag}] Removed worktree ${wt}`)
 }
-

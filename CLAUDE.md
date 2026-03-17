@@ -90,6 +90,7 @@ RETRY_DELAY_MS=60000
 MAX_CONCURRENT_TICKETS=2           # how many tickets to run in parallel
 CONTAINER_IDLE_TIMEOUT_MS=600000   # stop container after 10 min idle
 PROJECT_IMAGE=q-project         # Docker image name for project containers
+CONTAINER_USER=dev              # non-root user inside project containers (must match Dockerfile.project build arg)
 DRY_RUN=false                   # set true to skip Docker + Claude entirely
 PROXY_DOMAIN=                   # dev proxy domain (empty=disabled); e.g. "dev.localhost"
 PROXY_PORT=3201                 # port for the dev proxy server
