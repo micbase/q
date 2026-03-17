@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import App from './App.vue'
 import NewTicket from './views/NewTicket.vue'
 import TicketDetail from './views/TicketDetail.vue'
+import Projects from './views/Projects.vue'
 import './style.css'
 
 const EmptyState = defineComponent({
@@ -14,6 +15,7 @@ const router = createRouter({
   routes: [
     { path: '/', component: EmptyState },
     { path: '/new', component: NewTicket },
+    { path: '/projects', component: Projects },
     { path: '/tickets/:id', component: TicketDetail, props: true },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

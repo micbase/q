@@ -27,6 +27,13 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  updateProject: (id: string, body: { github_repo?: string | null; dev_command?: string | null; dev_envs?: string | null }): Promise<Project> =>
+    request(`/projects/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
   deleteProject: (id: string): Promise<void> =>
     request(`/projects/${id}`, { method: 'DELETE' }),
 
