@@ -114,7 +114,7 @@ export function scheduleIdleStop(ticketId: string): void {
   cancelIdleTimer(ticketId)
   const timer = setTimeout(async () => {
     try {
-      await stopTicketContainer(ticketId)
+      await stopContainer(ticketId)
     } catch (err) {
       console.error(`[provisioner] Idle stop failed for ticket ${ticketId}:`, err)
     }
@@ -132,7 +132,7 @@ function cancelIdleTimer(ticketId: string): void {
 
 // ─── Stop ─────────────────────────────────────────────────────────────────────
 
-async function stopTicketContainer(ticketId: string): Promise<void> {
+export async function stopContainer(ticketId: string): Promise<void> {
   const entry = containers.get(ticketId)
   if (!entry) return
 

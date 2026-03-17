@@ -74,6 +74,19 @@ export const api = {
   getStatus: (): Promise<Status> =>
     request('/status'),
 
+  // Containers
+  listContainers: (): Promise<{ projects: Project[]; tickets: Ticket[] }> =>
+    request('/containers'),
+
+  startContainer: (id: string): Promise<void> =>
+    request(`/tickets/${id}/container/start`, { method: 'POST' }),
+
+  stopContainer: (id: string): Promise<void> =>
+    request(`/tickets/${id}/container/stop`, { method: 'POST' }),
+
+  restartContainer: (id: string): Promise<void> =>
+    request(`/tickets/${id}/container/restart`, { method: 'POST' }),
+
   streamEvents: (id: string, onEvent: (e: StreamEvent) => void, onError?: () => void): EventSource => {
     const es = new EventSource(`${BASE}/tickets/${id}/stream`)
     es.onmessage = e => {
