@@ -155,6 +155,10 @@ async function stopTicketContainer(ticketId: string): Promise<void> {
   await setContainerStatus(ticketId, 'stopped')
 }
 
+export async function stopContainer(ticketId: string): Promise<void> {
+  await stopTicketContainer(ticketId)
+}
+
 /** Stop all q-managed containers (found by label) and clear in-memory state */
 export async function stopAll(): Promise<void> {
   if (config.dryRun) return

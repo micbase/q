@@ -6,6 +6,7 @@ import { messageRoutes } from './messages'
 import { streamRoutes } from './stream'
 import { projectRoutes } from './projects'
 import { statusRoutes } from './status'
+import { containerRoutes } from './containers'
 
 export async function buildServer() {
   const app = Fastify({ logger: { level: 'warn' } })
@@ -24,6 +25,7 @@ export async function buildServer() {
   await app.register(streamRoutes, { prefix: '/api' })
   await app.register(projectRoutes, { prefix: '/api' })
   await app.register(statusRoutes, { prefix: '/api' })
+  await app.register(containerRoutes, { prefix: '/api' })
 
   // SPA fallback: serve index.html for non-API, non-static routes
   app.setNotFoundHandler(async (request, reply) => {
