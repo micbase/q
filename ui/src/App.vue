@@ -19,6 +19,13 @@
       </span>
 
       <RouterLink
+        to="/projects"
+        class="text-base px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors font-medium"
+      >
+        Projects
+      </RouterLink>
+
+      <RouterLink
         to="/new"
         class="bg-blue-600 text-white text-base px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors font-medium"
       >

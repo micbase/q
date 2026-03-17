@@ -19,47 +19,11 @@
       <div>
         <div class="flex items-center justify-between mb-1">
           <label class="block text-base font-medium text-gray-700">Project</label>
-          <button
-            type="button"
-            @click="showNewProject = !showNewProject"
+          <RouterLink
+            to="/projects"
             class="text-sm text-blue-600 hover:underline"
-          >{{ showNewProject ? 'Cancel' : '+ New project' }}</button>
+          >Manage projects</RouterLink>
         </div>
-
-        <div v-if="showNewProject" class="flex flex-col gap-2 mb-2">
-          <input
-            v-model="newProject.name"
-            type="text"
-            placeholder="my-project"
-            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <input
-            v-model="newProject.github_repo"
-            type="text"
-            required
-            placeholder="owner/repo"
-            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <input
-            v-model="newProject.dev_command"
-            type="text"
-            placeholder="Dev command (e.g. npm run dev)"
-            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <textarea
-            v-model="newProject.dev_envs"
-            rows="3"
-            placeholder="Dev env variables (one per line, e.g. PORT=3000)"
-            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y font-mono text-sm"
-          />
-          <button
-            type="button"
-            :disabled="creatingProject || !newProject.name || !newProject.github_repo"
-            @click="createProject"
-            class="self-end bg-blue-600 text-white px-3 py-2 rounded-lg text-base hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >{{ creatingProject ? '...' : 'Create' }}</button>
-        </div>
-        <p v-if="newProjectError" class="text-red-600 text-sm mb-2">{{ newProjectError }}</p>
 
         <select
           v-model="form.project_id"
@@ -71,8 +35,9 @@
             {{ p.name }}
           </option>
         </select>
-        <p v-if="projects.length === 0 && !showNewProject" class="text-base text-gray-400 mt-1">
-          No projects yet — create one above.
+        <p v-if="projects.length === 0" class="text-base text-gray-400 mt-1">
+          No projects yet —
+          <RouterLink to="/projects" class="text-blue-600 hover:underline">create one</RouterLink>.
         </p>
       </div>
 
@@ -132,10 +97,6 @@ import type { Project } from '../../../shared/types'
 const router = useRouter()
 
 const projects = ref<Project[]>([])
-const showNewProject = ref(false)
-const newProject = ref({ name: '', github_repo: '', dev_command: '', dev_envs: '' })
-const newProjectError = ref('')
-const creatingProject = ref(false)
 
 const form = ref({
   title: '',
@@ -154,27 +115,6 @@ const priorities = [
 
 const submitting = ref(false)
 const error = ref('')
-
-async function createProject() {
-  newProjectError.value = ''
-  creatingProject.value = true
-  try {
-    const project = await api.createProject({
-      name: newProject.value.name.trim(),
-      github_repo: newProject.value.github_repo.trim(),
-      dev_command: newProject.value.dev_command.trim() || undefined,
-      dev_envs: newProject.value.dev_envs.trim() || undefined,
-    })
-    projects.value = await api.listProjects()
-    form.value.project_id = project.id
-    showNewProject.value = false
-    newProject.value = { name: '', github_repo: '', dev_command: '', dev_envs: '' }
-  } catch (err) {
-    newProjectError.value = err instanceof Error ? err.message : 'Failed to create project'
-  } finally {
-    creatingProject.value = false
-  }
-}
 
 async function submit() {
   submitting.value = true
