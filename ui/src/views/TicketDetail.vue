@@ -198,6 +198,7 @@ const sending = ref(false)
 const replyError = ref('')
 const scrollEl = ref<HTMLElement | null>(null)
 const expanded = ref<Set<number>>(new Set())
+const autoScroll = ref(true)
 let es: EventSource | null = null
 
 const inputDisabled = computed(() => sending.value || ticketStatus.value === 'running' || ticketStatus.value === 'queued')
@@ -313,9 +314,16 @@ function toggleExpanded(i: number) {
   }
 }
 
+function onScroll() {
+  if (!scrollEl.value) return
+  const el = scrollEl.value
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8
+  autoScroll.value = atBottom
+}
+
 function scrollToBottom() {
   nextTick(() => {
-    if (scrollEl.value) {
+    if (scrollEl.value && autoScroll.value) {
       scrollEl.value.scrollTop = scrollEl.value.scrollHeight
     }
   })
@@ -398,7 +406,13 @@ async function load(id: string) {
   openStream(id)
 }
 
-onMounted(() => load(props.id))
+onMounted(() => {
+  load(props.id)
+  nextTick(() => scrollEl.value?.addEventListener('scroll', onScroll, { passive: true }))
+})
 watch(() => props.id, load)
-onUnmounted(() => es?.close())
+onUnmounted(() => {
+  es?.close()
+  scrollEl.value?.removeEventListener('scroll', onScroll)
+})
 </script>
