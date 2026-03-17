@@ -12,8 +12,11 @@ function parseEnvs(devEnvs?: string): string[] {
     .filter(line => line && !line.startsWith('#'))
 }
 
-async function setStatus(ticketId: string, status: DevServerStatus, pid = 0): Promise<void> {
-  await db.updateTicketDevServerStatus(ticketId, status, pid)
+// In-memory map: ticketId → pid (only needed to kill the process)
+const pids = new Map<string, number>()
+
+async function setStatus(ticketId: string, status: DevServerStatus): Promise<void> {
+  await db.updateTicketDevServerStatus(ticketId, status)
   broker.publish({ type: 'DevServerStatusChange', ticket_id: ticketId, dev_server_status: status })
 }
 
@@ -25,7 +28,6 @@ export async function startDevServer(
   logTag: string,
   devEnvs?: string,
 ): Promise<void> {
-  // Stop any existing dev server for this ticket first
   await stopDevServer(ticketId, containerId, logTag)
 
   await setStatus(ticketId, 'starting')
@@ -48,47 +50,37 @@ export async function startDevServer(
     console.warn(`${t} Could not inspect exec PID:`, err)
   }
 
-  await setStatus(ticketId, 'running', pid)
+  pids.set(ticketId, pid)
+  await setStatus(ticketId, 'running')
 
-  stderr.on('data', (chunk: Buffer) => {
-    console.error(`${t} ${chunk.toString().trimEnd()}`)
-  })
-  stdout.on('data', (chunk: Buffer) => {
-    console.log(`${t} ${chunk.toString().trimEnd()}`)
-  })
+  stderr.on('data', (chunk: Buffer) => console.error(`${t} ${chunk.toString().trimEnd()}`))
+  stdout.on('data', (chunk: Buffer) => console.log(`${t} ${chunk.toString().trimEnd()}`))
 
-  // Conditional exit handler: only updates DB if our pid is still current,
-  // preventing a stale closure from clobbering a newly started server's status.
+  // Only update status on exit if this pid is still the current one (guards against
+  // a stale closure firing after a new server has already started for the same ticket)
   let exited = false
-  const onExit = (eventStatus: DevServerStatus) => {
+  const onExit = (status: DevServerStatus) => {
     if (exited) return
     exited = true
-    db.updateTicketDevServerStatusIfPid(ticketId, eventStatus, pid)
-      .then(updated => {
-        if (updated) broker.publish({ type: 'DevServerStatusChange', ticket_id: ticketId, dev_server_status: eventStatus })
-      })
-      .catch(err => console.error(`${t} Failed to persist dev server status:`, err))
+    if (pids.get(ticketId) === pid) {
+      pids.delete(ticketId)
+      setStatus(ticketId, status).catch(err =>
+        console.error(`${t} Failed to persist dev server status:`, err))
+    }
   }
 
-  duplex.on('end', () => {
-    console.log(`${t} Dev server exited`)
-    onExit('stopped')
-  })
+  duplex.on('end', () => { console.log(`${t} Dev server exited`); onExit('stopped') })
   duplex.on('close', () => onExit('stopped'))
-  duplex.on('error', (err: Error) => {
-    console.error(`${t} Dev server stream error:`, err)
-    onExit('error')
-  })
+  duplex.on('error', (err: Error) => { console.error(`${t} Dev server stream error:`, err); onExit('error') })
 }
 
 export async function stopDevServer(ticketId: string, containerId: string, logTag: string): Promise<void> {
-  const ticket = await db.getTicket(ticketId)
-  const pid = ticket?.dev_server_pid ?? 0
+  const pid = pids.get(ticketId) ?? 0
+  pids.delete(ticketId)
 
   if (pid > 0) {
     console.log(`[dev ${logTag}] Stopping dev server (pid ${pid})`)
     try {
-      // Kill the entire process group so background children spawned with & are also terminated
       await execInContainer(containerId, ['kill', '-9', `-${pid}`], logTag, { User: 'root' })
     } catch {
       // Process may have already exited — that's fine
@@ -100,5 +92,6 @@ export async function stopDevServer(ticketId: string, containerId: string, logTa
 
 /** Clear dev server state when a container is stopped — no kill needed, container is going down */
 export async function clearDevServer(ticketId: string): Promise<void> {
+  pids.delete(ticketId)
   await setStatus(ticketId, 'stopped')
 }
