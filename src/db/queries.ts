@@ -184,11 +184,20 @@ export async function updateTicketContainerStatus(id: string, containerStatus: C
   )
 }
 
-export async function updateTicketDevServerStatus(id: string, devServerStatus: DevServerStatus, q: DB = defaultDB): Promise<void> {
+export async function updateTicketDevServerStatus(id: string, devServerStatus: DevServerStatus, pid = 0, q: DB = defaultDB): Promise<void> {
   await q.query(
-    'UPDATE tickets SET dev_server_status = $1, updated_at = $2 WHERE id = $3',
-    [devServerStatus, now(), id]
+    'UPDATE tickets SET dev_server_status = $1, dev_server_pid = $2, updated_at = $3 WHERE id = $4',
+    [devServerStatus, pid, now(), id]
   )
+}
+
+/** Conditionally update dev server status only if the stored pid matches — prevents stale exit handlers from overwriting a newer server's state */
+export async function updateTicketDevServerStatusIfPid(id: string, devServerStatus: DevServerStatus, pid: number, q: DB = defaultDB): Promise<boolean> {
+  const result = await q.query(
+    'UPDATE tickets SET dev_server_status = $1, dev_server_pid = 0, updated_at = $2 WHERE id = $3 AND dev_server_pid = $4',
+    [devServerStatus, now(), id, pid]
+  )
+  return result.rowCount !== null && result.rowCount > 0
 }
 
 export async function countQueuedTickets(q: DB = defaultDB): Promise<number> {
@@ -291,6 +300,7 @@ function mapTicket(row: Ticket): Ticket {
     priority: Number(row.priority),
     container_status: row.container_status ?? 'stopped',
     dev_server_status: row.dev_server_status ?? 'stopped',
+    dev_server_pid: Number(row.dev_server_pid ?? 0),
     created_at: Number(row.created_at),
     updated_at: Number(row.updated_at),
     started_at: row.started_at ? Number(row.started_at) : undefined,

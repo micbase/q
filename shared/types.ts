@@ -56,6 +56,7 @@ export interface Ticket {
   status: TicketStatus
   container_status: ContainerStatus
   dev_server_status: DevServerStatus
+  dev_server_pid: number
   error?: string
   created_at: number      // unix ms
   updated_at: number
