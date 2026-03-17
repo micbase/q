@@ -28,6 +28,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { diffLines } from 'diff'
 import hljs from 'highlight.js/lib/core'
 
 // Register common languages
@@ -89,8 +90,6 @@ interface DiffLine {
   html: string
 }
 
-type EditOp = { type: 'equal' | 'delete' | 'insert'; line: string }
-
 function getLang(path: string): string | undefined {
   const basename = path.split('/').pop() ?? ''
   if (basename === 'Dockerfile') return 'dockerfile'
@@ -111,55 +110,27 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-function computeOps(a: string[], b: string[]): EditOp[] {
-  const m = a.length, n = b.length
-  if (m === 0 && n === 0) return []
-  // Fall back for very large inputs to avoid O(m*n) memory/time
-  if (m * n > 200000) {
-    return [
-      ...a.map(line => ({ type: 'delete' as const, line })),
-      ...b.map(line => ({ type: 'insert' as const, line })),
-    ]
-  }
-  // LCS-based diff via DP
-  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
-  for (let i = m - 1; i >= 0; i--) {
-    for (let j = n - 1; j >= 0; j--) {
-      if (a[i] === b[j]) {
-        dp[i][j] = dp[i + 1][j + 1] + 1
-      } else {
-        dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1])
-      }
-    }
-  }
-  const ops: EditOp[] = []
-  let i = 0, j = 0
-  while (i < m && j < n) {
-    if (a[i] === b[j]) {
-      ops.push({ type: 'equal', line: a[i] })
-      i++; j++
-    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
-      ops.push({ type: 'delete', line: a[i++] })
-    } else {
-      ops.push({ type: 'insert', line: b[j++] })
-    }
-  }
-  while (i < m) ops.push({ type: 'delete', line: a[i++] })
-  while (j < n) ops.push({ type: 'insert', line: b[j++] })
-  return ops
-}
-
 const diffLines = computed<DiffLine[]>(() => {
   const lang = getLang(props.filePath)
-  const oldLines = props.oldString.split('\n')
-  const newLines = props.newString.split('\n')
-
-  const ops = computeOps(oldLines, newLines)
   const CONTEXT = 3
+
+  // Each chunk: { value: string, added?: bool, removed?: bool }
+  const chunks = diffLines(props.oldString, props.newString)
+
+  // Expand chunks into per-line ops
+  type Op = { type: 'context' | 'remove' | 'add'; text: string }
+  const ops: Op[] = []
+  for (const chunk of chunks) {
+    const type = chunk.added ? 'add' : chunk.removed ? 'remove' : 'context'
+    const chunkLines = chunk.value.split('\n')
+    // diffLines appends a trailing empty string when value ends with \n — drop it
+    if (chunkLines[chunkLines.length - 1] === '') chunkLines.pop()
+    for (const text of chunkLines) ops.push({ type, text })
+  }
 
   const changed = new Set<number>()
   for (let i = 0; i < ops.length; i++) {
-    if (ops[i].type !== 'equal') changed.add(i)
+    if (ops[i].type !== 'context') changed.add(i)
   }
   if (changed.size === 0) return []
 
@@ -174,14 +145,8 @@ const diffLines = computed<DiffLine[]>(() => {
   let prev = -2
   for (let i = 0; i < ops.length; i++) {
     if (!show.has(i)) continue
-    if (prev >= 0 && i > prev + 1) {
-      lines.push({ type: 'sep', html: '' })
-    }
-    const op = ops[i]
-    lines.push({
-      type: op.type === 'equal' ? 'context' : op.type === 'delete' ? 'remove' : 'add',
-      html: highlightLine(op.line, lang),
-    })
+    if (prev >= 0 && i > prev + 1) lines.push({ type: 'sep', html: '' })
+    lines.push({ type: ops[i].type, html: highlightLine(ops[i].text, lang) })
     prev = i
   }
   return lines
