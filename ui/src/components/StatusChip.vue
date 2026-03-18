@@ -1,6 +1,12 @@
 <template>
-  <span class="text-sm px-2 py-0.5 rounded-full font-medium" :class="chipClass">
-    {{ label }}
+  <span class="text-sm px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1" :class="chipClass">
+    <template v-if="isActive">
+      <span class="dot" style="animation-delay:0ms"></span>
+      <span class="dot" style="animation-delay:200ms"></span>
+      <span class="dot" style="animation-delay:400ms"></span>
+      {{ label }}
+    </template>
+    <template v-else>{{ label }}</template>
   </span>
 </template>
 
@@ -8,6 +14,8 @@
 import { computed } from 'vue'
 
 const props = defineProps<{ status: string }>()
+
+const isActive = computed(() => props.status === 'running' || props.status === 'queued')
 
 const chipClass = computed(() => {
   switch (props.status) {
@@ -24,12 +32,26 @@ const chipClass = computed(() => {
 const label = computed(() => {
   switch (props.status) {
     case 'queued':   return 'Queued'
-    case 'running':  return '⚡ Running'
-    case 'paused':   return '⚠️ Paused'
-    case 'done':     return '✅ Done'
-    case 'failed':   return '❌ Failed'
+    case 'running':  return 'Running'
+    case 'paused':   return 'Paused'
+    case 'done':     return 'Done'
+    case 'failed':   return 'Failed'
     case 'deleted':   return 'Deleted'
     default:         return props.status
   }
 })
 </script>
+
+<style scoped>
+@keyframes dot-flash {
+  0%, 100% { opacity: 0.25; }
+  50%       { opacity: 1; }
+}
+.dot {
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: dot-flash 1.2s ease-in-out infinite;
+}
+</style>
