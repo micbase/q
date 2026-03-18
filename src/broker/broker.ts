@@ -1,5 +1,5 @@
 import type { ServerResponse } from 'http'
-import type { StreamEvent } from '../../shared/types'
+import type { MessageStreamEvent, StatusStreamEvent } from '../../shared/types'
 
 // Special key for global subscribers (receive all status-change events)
 export const GLOBAL_CHANNEL = '$global'
@@ -19,36 +19,28 @@ class SSEBroker {
     }
   }
 
-  publish(event: StreamEvent): void {
+  publishMessage(event: MessageStreamEvent): void {
     const data = `data: ${JSON.stringify(event)}\n\n`
-
-    const isStatusChange = event.type === 'TicketStatusChange'
-      || event.type === 'ContainerStatusChange'
-      || event.type === 'DevServerStatusChange'
-
-    if (isStatusChange) {
-      // Status events → global channel only
-      const globalClients = this.clients.get(GLOBAL_CHANNEL)
-      if (globalClients) {
-        for (const res of globalClients) {
-          try {
-            res.write(data)
-          } catch {
-            globalClients.delete(res)
-          }
-        }
+    const clients = this.clients.get(event.ticket_id)
+    if (!clients) return
+    for (const res of clients) {
+      try {
+        res.write(data)
+      } catch {
+        clients.delete(res)
       }
-    } else {
-      // Message events → per-ticket channel only
-      const clients = this.clients.get(event.ticket_id)
-      if (clients) {
-        for (const res of clients) {
-          try {
-            res.write(data)
-          } catch {
-            clients.delete(res)
-          }
-        }
+    }
+  }
+
+  publishStatus(event: StatusStreamEvent): void {
+    const data = `data: ${JSON.stringify(event)}\n\n`
+    const globalClients = this.clients.get(GLOBAL_CHANNEL)
+    if (!globalClients) return
+    for (const res of globalClients) {
+      try {
+        res.write(data)
+      } catch {
+        globalClients.delete(res)
       }
     }
   }

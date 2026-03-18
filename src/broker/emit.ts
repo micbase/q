@@ -15,7 +15,7 @@ export async function emitMessage(
   q: DB = defaultDB,
 ): Promise<void> {
   await db.insertMessage(ticketId, role, content, messageType, opts, q)
-  broker.publish({
+  broker.publishMessage({
     type: 'NewMessage',
     ticket_id: ticketId,
     content,
@@ -42,5 +42,5 @@ export async function emitTicketStatusChange(
   } else {
     await db.updateTicketStatus(ticketId, status, q)
   }
-  broker.publish({ type: 'TicketStatusChange', ticket_id: ticketId, ticket_status: status })
+  broker.publishStatus({ type: 'TicketStatusChange', ticket_id: ticketId, ticket_status: status })
 }

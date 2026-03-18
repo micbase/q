@@ -18,7 +18,7 @@ const idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 async function setContainerStatus(ticketId: string, status: ContainerStatus): Promise<void> {
   await db.updateTicketContainerStatus(ticketId, status)
-  broker.publish({ type: 'ContainerStatusChange', ticket_id: ticketId, container_status: status })
+  broker.publishStatus({ type: 'ContainerStatusChange', ticket_id: ticketId, container_status: status })
 }
 
 async function refreshCredentials(entry: ContainerEntry, project: Project): Promise<void> {

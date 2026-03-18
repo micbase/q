@@ -25,17 +25,24 @@ export interface ClaudeEvent extends ToolFields {
   claude_session_id?: string
 }
 
-// SSE event sent to frontend
-export type StreamEventType = 'TicketStatusChange' | 'ContainerStatusChange' | 'DevServerStatusChange' | 'NewMessage'
+// SSE events sent to frontend — two distinct kinds routed to different channels
 
-export interface StreamEvent extends Partial<Omit<ClaudeEvent, 'type'>> {
-  type: StreamEventType
+// Per-ticket channel: message content events
+export interface MessageStreamEvent extends ToolFields {
+  type: 'NewMessage'
   ticket_id: string
-  message_type?: MessageType
-  ticket_status?: TicketStatus
-  container_status?: ContainerStatus
-  dev_server_status?: DevServerStatus
+  message_type: MessageType
+  content: string
+  role?: 'user' | 'assistant' | 'system'
 }
+
+// Global channel: lightweight status-change events
+export type StatusStreamEvent =
+  | { type: 'TicketStatusChange';    ticket_id: string; ticket_status: TicketStatus }
+  | { type: 'ContainerStatusChange'; ticket_id: string; container_status: ContainerStatus }
+  | { type: 'DevServerStatusChange'; ticket_id: string; dev_server_status: DevServerStatus }
+
+export type StreamEvent = MessageStreamEvent | StatusStreamEvent
 export interface DbCredential {
   host: string
   port: number
