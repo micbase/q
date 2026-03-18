@@ -4,11 +4,12 @@ import { withTransaction } from '../db/connection'
 import type { ClaudeEvent } from '../../shared/types'
 import { callClaude } from './claude-client'
 import { runDrySession, buildInitialPrompt } from './session'
+import { generateTitle } from './title'
 import { ensureWorktree } from './github'
 import * as provisioner from './provisioner'
 import { startDevServer } from './dev-server'
 import * as notify from './notify'
-import { emitMessage, emitTicketStatusChange } from '../broker/emit'
+import { emitMessage, emitTicketStatusChange, emitTicketTitleChange } from '../broker/emit'
 import ms from 'ms'
 
 function sleep(ms: number): Promise<void> {
@@ -122,6 +123,15 @@ class Scheduler {
             await emitMessage(ticket.id, '', 'done', event.role, { claudeSessionId: event.claude_session_id }, tx)
             await emitTicketStatusChange(ticket.id, 'done', undefined, tx)
           })
+          if (!isResume && !ticket.title) {
+            try {
+              const title = await generateTitle(ticket.description)
+              await emitTicketTitleChange(ticket.id, title)
+              ticket.title = title
+            } catch (err) {
+              console.warn(`[scheduler] Failed to generate title for ${ticket.id}:`, err)
+            }
+          }
           console.log(`[scheduler] Ticket ${ticket.id} completed`)
           await notify.send(`✅ Done: ${ticket.title}`)
           if (!config.dryRun) provisioner.scheduleIdleStop(ticket.id)
@@ -133,6 +143,15 @@ class Scheduler {
             await emitMessage(ticket.id, '', 'paused', event.role, { claudeSessionId: event.claude_session_id }, tx)
             await emitTicketStatusChange(ticket.id, 'paused', undefined, tx)
           })
+          if (!isResume && !ticket.title) {
+            try {
+              const title = await generateTitle(ticket.description)
+              await emitTicketTitleChange(ticket.id, title)
+              ticket.title = title
+            } catch (err) {
+              console.warn(`[scheduler] Failed to generate title for ${ticket.id}:`, err)
+            }
+          }
           console.log(`[scheduler] Ticket ${ticket.id} paused (waiting for input)`)
           await notify.send(`💬 Input needed: ${ticket.title}`, event.content)
           if (!config.dryRun) provisioner.scheduleIdleStop(ticket.id)

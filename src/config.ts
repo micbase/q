@@ -31,6 +31,7 @@ export const config = {
     password: optional('DB_PASSWORD', ''),
   },
 
+  anthropicApiKey: optional('ANTHROPIC_API_KEY', ''),
   ntfyUrl: optional('NTFY_URL', ''),
   port: optionalInt('API_PORT', 3200),
   pollIntervalMs: optionalInt('POLL_INTERVAL_MS', 5000),

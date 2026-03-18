@@ -117,20 +117,11 @@ const priorities = [
 const submitting = ref(false)
 const error = ref('')
 
-function deriveTitle(description: string): string {
-  const firstLine = description.split('\n')[0].trim()
-  return firstLine.length > 60 ? firstLine.slice(0, 60).trimEnd() + '…' : firstLine
-}
-
 async function submit() {
   submitting.value = true
   error.value = ''
   try {
-    const payload = {
-      ...form.value,
-      title: form.value.title.trim() || deriveTitle(form.value.description),
-    }
-    const ticket = await api.createTicket(payload)
+    const ticket = await api.createTicket(form.value)
     router.push(`/tickets/${ticket.id}`)
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to create ticket'

@@ -26,7 +26,7 @@ export interface ClaudeEvent extends ToolFields {
 }
 
 // SSE event sent to frontend
-export type StreamEventType = 'TicketStatusChange' | 'ContainerStatusChange' | 'DevServerStatusChange' | 'NewMessage'
+export type StreamEventType = 'TicketStatusChange' | 'ContainerStatusChange' | 'DevServerStatusChange' | 'NewMessage' | 'TicketTitleChange'
 
 export interface StreamEvent extends Partial<Omit<ClaudeEvent, 'type'>> {
   type: StreamEventType
@@ -35,6 +35,7 @@ export interface StreamEvent extends Partial<Omit<ClaudeEvent, 'type'>> {
   ticket_status?: TicketStatus
   container_status?: ContainerStatus
   dev_server_status?: DevServerStatus
+  title?: string
 }
 export interface DbCredential {
   host: string
@@ -88,7 +89,7 @@ export interface Status {
 
 export interface CreateTicketInput {
   project_id: string
-  title: string
+  title?: string
   description: string
   priority: number
 }

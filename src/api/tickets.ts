@@ -28,10 +28,10 @@ export async function ticketRoutes(app: FastifyInstance) {
 
   // POST /api/tickets
   app.post<{ Body: CreateTicketBody }>('/tickets', async (req, reply) => {
-    const { project_id, title, description } = req.body
+    const { project_id, title = '', description } = req.body
     const priority = Number(req.body.priority ?? 3)
-    if (!project_id || !title || !description) {
-      return reply.status(400).send({ error: 'project_id, title, description are required' })
+    if (!project_id || !description) {
+      return reply.status(400).send({ error: 'project_id and description are required' })
     }
     if (!Number.isInteger(priority) || priority < 1 || priority > 5) {
       return reply.status(400).send({ error: 'priority must be an integer 1-5' })

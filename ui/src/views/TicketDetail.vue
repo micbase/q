@@ -566,6 +566,11 @@ function handleEvent(event: StreamEvent) {
     ticketStatus.value = event.ticket_status
     bus.refresh()
   }
+
+  if (event.type === 'TicketTitleChange' && event.title && ticket.value) {
+    ticket.value = { ...ticket.value, title: event.title }
+    bus.refresh()
+  }
 }
 
 function openStream(id: string) {

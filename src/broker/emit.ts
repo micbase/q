@@ -31,6 +31,11 @@ export async function emitMessage(
   })
 }
 
+export async function emitTicketTitleChange(ticketId: string, title: string, q: DB = defaultDB): Promise<void> {
+  await db.updateTicket(ticketId, { title }, q)
+  broker.publish({ type: 'TicketTitleChange', ticket_id: ticketId, title })
+}
+
 export async function emitTicketStatusChange(
   ticketId: string,
   status: TicketStatus,
