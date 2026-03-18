@@ -49,6 +49,15 @@ export const config = {
   devServerPort: optionalInt('DEV_SERVER_PORT', 5173),
   dockerRunOptions: JSON.parse(optional('DOCKER_RUN_OPTIONS', '{}')),
   containerUser: optional('CONTAINER_USER', 'dev'),
+
+  // Dev postgres — separate from q's own DB; used to auto-provision per-project DBs.
+  // If DEV_DB_HOST is not set, DB provisioning is skipped.
+  devDb: {
+    host: optional('DEV_DB_HOST', ''),
+    port: optionalInt('DEV_DB_PORT', 5432),
+    user: optional('DEV_DB_USER', 'postgres'),
+    password: optional('DEV_DB_PASSWORD', ''),
+  },
 }
 
 // Wipe process.env so secrets can never leak to child processes.
@@ -74,4 +83,5 @@ export function validate(): void {
   if (config.githubAppId) console.log(`[config]   GitHub App: ${config.githubAppId}`)
   if (config.proxyDomain) console.log(`[config]   Proxy: *.${config.proxyDomain} on port ${config.proxyPort} → :${config.devServerPort}`)
   if (Object.keys(config.dockerRunOptions).length) console.log(`[config]   Docker run options: ${JSON.stringify(config.dockerRunOptions)}`)
+  if (config.devDb.host) console.log(`[config]   Dev DB: ${config.devDb.user}@${config.devDb.host}:${config.devDb.port}`)
 }

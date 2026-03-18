@@ -159,12 +159,24 @@
         </div>
 
         <!-- Read-only detail row (when not editing) -->
-        <div v-else-if="project.dev_command || project.dev_envs" class="border-t border-gray-100 px-4 py-2 bg-gray-50 flex flex-col gap-1">
+        <div v-else-if="project.dev_command || project.dev_envs || project.db_credential" class="border-t border-gray-100 px-4 py-2 bg-gray-50 flex flex-col gap-1">
           <div v-if="project.dev_command" class="text-xs text-gray-500">
             <span class="font-medium">Dev:</span> <code class="font-mono">{{ project.dev_command }}</code>
           </div>
           <div v-if="project.dev_envs" class="text-xs text-gray-500">
             <span class="font-medium">Env:</span> <code class="font-mono whitespace-pre">{{ project.dev_envs }}</code>
+          </div>
+          <div v-if="project.db_credential" class="text-xs text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+            <span class="font-medium text-gray-700">DB:</span>
+            <span><code class="font-mono">{{ project.db_credential.user }}@{{ project.db_credential.host }}:{{ project.db_credential.port }}/{{ project.db_credential.database }}</code></span>
+            <span>
+              pw:
+              <code class="font-mono">{{ revealedPasswords.has(project.id) ? project.db_credential.password : '••••••••••' }}</code>
+              <button
+                @click="togglePassword(project.id)"
+                class="ml-1 text-blue-500 hover:underline"
+              >{{ revealedPasswords.has(project.id) ? 'hide' : 'show' }}</button>
+            </span>
           </div>
         </div>
       </div>
@@ -224,6 +236,15 @@ const saving = ref<string | null>(null)
 const deleteTarget = ref<Project | null>(null)
 const deleting = ref(false)
 const deleteError = ref('')
+
+// Password reveal state
+const revealedPasswords = ref<Set<string>>(new Set())
+function togglePassword(projectId: string) {
+  const s = new Set(revealedPasswords.value)
+  if (s.has(projectId)) s.delete(projectId)
+  else s.add(projectId)
+  revealedPasswords.value = s
+}
 
 async function load() {
   try {
