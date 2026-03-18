@@ -127,9 +127,7 @@
 
         <!-- Assistant text -->
         <div v-else-if="g.kind === 'msg' && g.msg!.message_type === 'text'" class="flex justify-start">
-          <div class="bg-amber-50 border border-amber-200 rounded-2xl rounded-tl-sm px-4 py-2 max-w-full w-full text-base whitespace-pre-wrap text-gray-800">
-            {{ g.msg!.content }}
-          </div>
+          <div class="bg-amber-50 border border-amber-200 rounded-2xl rounded-tl-sm px-4 py-2 max-w-full w-full text-base text-gray-800 markdown-body" v-html="renderMarkdown(g.msg!.content)"></div>
         </div>
 
         <!-- Thinking -->
@@ -311,6 +309,8 @@ import { bus } from '../bus'
 import StatusChip from '../components/StatusChip.vue'
 import PriorityPips from '../components/PriorityPips.vue'
 import EditDiff from '../components/EditDiff.vue'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 
 interface DisplayMsg {
   message_type: MessageType
@@ -488,6 +488,10 @@ function toggleExpanded(i: number) {
   }
 }
 
+function renderMarkdown(text: string): string {
+  return DOMPurify.sanitize(marked.parse(text, { async: false }) as string)
+}
+
 function onScroll() {
   if (!scrollEl.value) return
   const el = scrollEl.value
@@ -615,6 +619,59 @@ onUnmounted(() => {
   animation: progress-bar 1.5s linear infinite;
   width: 60%;
 }
+
+/* Markdown rendering */
+.markdown-body :deep(p) { margin: 0.4em 0; }
+.markdown-body :deep(p:first-child) { margin-top: 0; }
+.markdown-body :deep(p:last-child) { margin-bottom: 0; }
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3),
+.markdown-body :deep(h4) {
+  font-weight: 600;
+  margin: 0.75em 0 0.3em;
+  line-height: 1.3;
+}
+.markdown-body :deep(h1) { font-size: 1.2em; }
+.markdown-body :deep(h2) { font-size: 1.1em; }
+.markdown-body :deep(h3) { font-size: 1em; }
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  padding-left: 1.4em;
+  margin: 0.4em 0;
+}
+.markdown-body :deep(li) { margin: 0.15em 0; }
+.markdown-body :deep(code) {
+  background: rgba(0,0,0,0.07);
+  border-radius: 3px;
+  padding: 0.15em 0.35em;
+  font-family: ui-monospace, monospace;
+  font-size: 0.875em;
+}
+.markdown-body :deep(pre) {
+  background: rgba(0,0,0,0.07);
+  border-radius: 6px;
+  padding: 0.75em 1em;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+.markdown-body :deep(pre code) {
+  background: none;
+  padding: 0;
+  font-size: 0.8em;
+}
+.markdown-body :deep(blockquote) {
+  border-left: 3px solid #d97706;
+  padding-left: 0.75em;
+  margin: 0.5em 0;
+  color: #6b7280;
+}
+.markdown-body :deep(a) { color: #2563eb; text-decoration: underline; }
+.markdown-body :deep(hr) { border-color: #d1d5db; margin: 0.75em 0; }
+.markdown-body :deep(table) { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
+.markdown-body :deep(th),
+.markdown-body :deep(td) { border: 1px solid #d1d5db; padding: 0.3em 0.6em; text-align: left; }
+.markdown-body :deep(th) { background: rgba(0,0,0,0.05); font-weight: 600; }
 
 .sheet-enter-active,
 .sheet-leave-active {
