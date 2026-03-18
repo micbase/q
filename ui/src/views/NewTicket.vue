@@ -5,12 +5,13 @@
     <form @submit.prevent="submit" class="flex flex-col gap-4">
       <!-- Title -->
       <div>
-        <label class="block text-base font-medium text-gray-700 mb-1">Title</label>
+        <label class="block text-base font-medium text-gray-700 mb-1">
+          Title <span class="text-gray-400 font-normal text-sm">(optional — auto-generated from description)</span>
+        </label>
         <input
           v-model="form.title"
           type="text"
-          required
-          placeholder="Fix auth bug in JWT refresh"
+          placeholder="Leave blank to auto-generate"
           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
@@ -116,11 +117,20 @@ const priorities = [
 const submitting = ref(false)
 const error = ref('')
 
+function deriveTitle(description: string): string {
+  const firstLine = description.split('\n')[0].trim()
+  return firstLine.length > 60 ? firstLine.slice(0, 60).trimEnd() + '…' : firstLine
+}
+
 async function submit() {
   submitting.value = true
   error.value = ''
   try {
-    const ticket = await api.createTicket(form.value)
+    const payload = {
+      ...form.value,
+      title: form.value.title.trim() || deriveTitle(form.value.description),
+    }
+    const ticket = await api.createTicket(payload)
     router.push(`/tickets/${ticket.id}`)
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to create ticket'
