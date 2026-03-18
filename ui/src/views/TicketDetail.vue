@@ -7,8 +7,8 @@
         <div class="flex items-center gap-3">
           <!-- Left: status chip + title + meta + running badge -->
           <div class="flex items-center gap-2 flex-1 min-w-0">
-            <StatusChip v-if="ticket" :status="ticketStatus" class="shrink-0" />
             <h1 class="font-semibold text-base truncate">{{ ticket?.title }}</h1>
+            <StatusChip v-if="ticket" :status="ticketStatus" class="shrink-0" />
             <template v-if="ticket">
               <span class="text-gray-300 shrink-0">·</span>
               <PriorityPips :priority="ticket.priority" class="shrink-0" />
