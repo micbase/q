@@ -1,12 +1,12 @@
 <template>
   <div class="flex flex-col h-full">
     <!-- Filter pills -->
-    <div class="px-3 pt-2 pb-2 flex gap-1.5 flex-wrap border-b border-gray-100 shrink-0">
+    <div class="px-3 pt-2 pb-2 flex gap-1 border-b border-gray-100 shrink-0">
       <button
         v-for="f in filters"
         :key="f.value"
         @click="activeFilter = f.value"
-        class="px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors"
+        class="px-2 py-0.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap"
         :class="activeFilter === f.value
           ? 'bg-gray-800 text-white'
           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
