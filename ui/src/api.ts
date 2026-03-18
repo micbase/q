@@ -112,4 +112,15 @@ export const api = {
     }
     return es
   },
+
+  streamAllEvents: (onEvent: (e: StreamEvent) => void, onOpen?: () => void): EventSource => {
+    const es = new EventSource(`${BASE}/events`)
+    es.onmessage = e => {
+      try {
+        onEvent(JSON.parse(e.data))
+      } catch { /* ignore parse errors */ }
+    }
+    es.onopen = () => onOpen?.()
+    return es
+  },
 }

@@ -57,7 +57,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '../api'
-import type { Ticket, Project, TicketStatus } from '../../../shared/types'
+import type { Ticket, Project, TicketStatus, StreamEvent } from '../../../shared/types'
 import { bus } from '../bus'
 
 const emit = defineEmits<{ close: [] }>()
@@ -168,11 +168,28 @@ async function load() {
 watch(() => route.fullPath, load)
 
 let unsubBus: (() => void) | undefined
+let globalEs: EventSource | undefined
+
+function handleGlobalEvent(event: StreamEvent) {
+  if (event.type === 'TicketStatusChange' && event.ticket_status) {
+    const t = tickets.value.find(t => t.id === event.ticket_id)
+    if (t) {
+      t.status = event.ticket_status
+    } else {
+      // Unknown ticket — do a full reload to pick it up
+      load()
+    }
+  }
+}
 
 onMounted(() => {
   load()
   unsubBus = bus.onRefresh(load)
+  globalEs = api.streamAllEvents(handleGlobalEvent, load)
 })
 
-onUnmounted(() => { unsubBus?.() })
+onUnmounted(() => {
+  unsubBus?.()
+  globalEs?.close()
+})
 </script>

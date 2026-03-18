@@ -1,6 +1,9 @@
 import type { ServerResponse } from 'http'
 import type { StreamEvent } from '../../shared/types'
 
+// Special key for global subscribers (receive all status-change events)
+export const GLOBAL_CHANNEL = '$global'
+
 class SSEBroker {
   private clients = new Map<string, Set<ServerResponse>>()
 
@@ -17,14 +20,34 @@ class SSEBroker {
   }
 
   publish(event: StreamEvent): void {
-    const clients = this.clients.get(event.ticket_id)
-    if (!clients) return
     const data = `data: ${JSON.stringify(event)}\n\n`
-    for (const res of clients) {
-      try {
-        res.write(data)
-      } catch {
-        clients.delete(res)
+
+    // Publish to per-ticket subscribers
+    const clients = this.clients.get(event.ticket_id)
+    if (clients) {
+      for (const res of clients) {
+        try {
+          res.write(data)
+        } catch {
+          clients.delete(res)
+        }
+      }
+    }
+
+    // Also fan-out status-change events to global subscribers
+    const isStatusChange = event.type === 'TicketStatusChange'
+      || event.type === 'ContainerStatusChange'
+      || event.type === 'DevServerStatusChange'
+    if (isStatusChange) {
+      const globalClients = this.clients.get(GLOBAL_CHANNEL)
+      if (globalClients) {
+        for (const res of globalClients) {
+          try {
+            res.write(data)
+          } catch {
+            globalClients.delete(res)
+          }
+        }
       }
     }
   }
