@@ -38,6 +38,7 @@ export async function* callClaude(
   logTag: string,
   sessionId?: string,
   workDir?: string,
+  log?: (line: string) => void,
 ): AsyncGenerator<ClaudeEvent> {
   const cmd = ['claude', '-p', '--verbose', '--output-format', 'stream-json', '--dangerously-skip-permissions']
   if (sessionId) {
@@ -45,25 +46,36 @@ export async function* callClaude(
   }
 
   const t = `[claude ${logTag}]`
-  console.log(`${t} exec: ${cmd.join(' ')}`)
-  console.log(`${t} workDir: ${workDir ?? '/workspace'}`)
-  console.log(`${t} prompt length: ${prompt.length} chars`)
+  const execLine = `exec: ${cmd.join(' ')}`
+  console.log(`${t} ${execLine}`)
+  log?.(execLine)
+  const wdLine = `workDir: ${workDir ?? '/workspace'}`
+  console.log(`${t} ${wdLine}`)
+  log?.(wdLine)
+  const promptLine = `prompt length: ${prompt.length} chars`
+  console.log(`${t} ${promptLine}`)
+  log?.(promptLine)
 
   const { exec, duplex, stdout, stderr } = await execInteractive(containerId, cmd, {
     WorkingDir: workDir ?? '/workspace',
   })
 
-  console.log(`${t} exec started, writing prompt to stdin`)
+  const startedLine = 'exec started, writing prompt to stdin'
+  console.log(`${t} ${startedLine}`)
+  log?.(startedLine)
 
   // Write prompt to stdin, then close stdin
   duplex.write(prompt)
   duplex.end()
   console.log(`${t} stdin closed`)
+  log?.('stdin closed')
 
   // Collect stderr for error reporting
   const stderrChunks: Buffer[] = []
   stderr.on('data', (chunk: Buffer) => {
-    console.log(`${t} stderr: ${chunk.toString().trim()}`)
+    const msg = `stderr: ${chunk.toString().trim()}`
+    console.log(`${t} ${msg}`)
+    log?.(msg)
     stderrChunks.push(chunk)
   })
 
@@ -76,7 +88,9 @@ export async function* callClaude(
   const watchdog = setInterval(() => {
     const silentSec = ((Date.now() - lastEventTime) / 1000).toFixed(0)
     const totalSec = ((Date.now() - startTime) / 1000).toFixed(0)
-    console.log(`${t} watchdog: ${eventCount} events, silent ${silentSec}s, total ${totalSec}s`)
+    const msg = `watchdog: ${eventCount} events, silent ${silentSec}s, total ${totalSec}s`
+    console.log(`${t} ${msg}`)
+    log?.(msg)
   }, 30_000)
 
   try {
@@ -94,21 +108,27 @@ export async function* callClaude(
         try {
           event = JSON.parse(trimmed)
         } catch {
-          console.log(`${t} unparseable line: ${trimmed.slice(0, 200)}`)
+          const msg = `unparseable line: ${trimmed.slice(0, 200)}`
+          console.log(`${t} ${msg}`)
+          log?.(msg)
           continue
         }
 
         eventCount++
         if (event.type === 'result') {
           const e = event as CLIResultEvent
-          console.log(`${t} result event: subtype=${e.subtype}, session_id=${e.session_id}`)
+          const msg = `result event: subtype=${e.subtype}, session_id=${e.session_id}`
+          console.log(`${t} ${msg}`)
+          log?.(msg)
         }
 
         yield* mapCLIEvent(event)
       }
     }
 
-    console.log(`${t} stdout ended after ${eventCount} events, ${((Date.now() - startTime) / 1000).toFixed(1)}s`)
+    const endedMsg = `stdout ended after ${eventCount} events, ${((Date.now() - startTime) / 1000).toFixed(1)}s`
+    console.log(`${t} ${endedMsg}`)
+    log?.(endedMsg)
 
     // If CLI produced no events, it likely failed on startup
     if (eventCount === 0) {
@@ -122,14 +142,19 @@ export async function* callClaude(
         const event: CLIEvent = JSON.parse(buffer.trim())
         yield* mapCLIEvent(event)
       } catch {
-        console.log(`${t} unparseable trailing buffer: ${buffer.trim().slice(0, 200)}`)
+        const msg = `unparseable trailing buffer: ${buffer.trim().slice(0, 200)}`
+        console.log(`${t} ${msg}`)
+        log?.(msg)
       }
     }
 
     // Check exit code
     console.log(`${t} inspecting exec exit code...`)
+    log?.('inspecting exec exit code...')
     const inspectResult = await exec.inspect()
-    console.log(`${t} exit code: ${inspectResult.ExitCode}`)
+    const exitMsg = `exit code: ${inspectResult.ExitCode}`
+    console.log(`${t} ${exitMsg}`)
+    log?.(exitMsg)
     if (inspectResult.ExitCode !== 0 && inspectResult.ExitCode !== null) {
       const stderrText = Buffer.concat(stderrChunks).toString().trim()
       throw new Error(`claude CLI exited with code ${inspectResult.ExitCode}: ${stderrText || '(no stderr)'}`)
