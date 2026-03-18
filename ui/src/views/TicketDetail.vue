@@ -15,12 +15,6 @@
               <span class="text-gray-300 shrink-0">·</span>
               <span class="text-sm text-gray-400 shrink-0">{{ relativeTime(ticket.created_at) }}</span>
             </template>
-            <!-- Pulsing dots when running -->
-            <span v-if="isRunning" class="flex items-center gap-0.5 shrink-0" title="Claude Code is running">
-              <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce" style="animation-delay:0ms"></span>
-              <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce" style="animation-delay:150ms"></span>
-              <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce" style="animation-delay:300ms"></span>
-            </span>
           </div>
 
           <!-- Right: dev link + restart + overflow -->
@@ -93,11 +87,7 @@
         <!-- Center: title + running badge -->
         <div class="flex items-center gap-1.5 flex-1 min-w-0">
           <span class="font-semibold text-base truncate">{{ ticket?.title ?? 'Loading...' }}</span>
-          <span v-if="isRunning" class="flex items-center gap-0.5 shrink-0">
-            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce" style="animation-delay:0ms"></span>
-            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce" style="animation-delay:150ms"></span>
-            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce" style="animation-delay:300ms"></span>
-          </span>
+          <StatusChip v-if="ticket" :status="ticketStatus" class="shrink-0" />
         </div>
 
         <!-- Right: ··· -->

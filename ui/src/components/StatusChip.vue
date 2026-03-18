@@ -1,5 +1,5 @@
 <template>
-  <span class="text-sm px-2 py-0.5 rounded-full font-medium" :class="chipClass">
+  <span class="text-sm px-2 py-0.5 rounded-full font-medium" :class="[chipClass, isActive ? 'animate-pulse' : '']">
     {{ label }}
   </span>
 </template>
@@ -8,6 +8,8 @@
 import { computed } from 'vue'
 
 const props = defineProps<{ status: string }>()
+
+const isActive = computed(() => props.status === 'running' || props.status === 'queued')
 
 const chipClass = computed(() => {
   switch (props.status) {
