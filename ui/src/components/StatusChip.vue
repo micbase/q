@@ -4,6 +4,7 @@
       <span class="w-1 h-1 rounded-full bg-current animate-bounce" style="animation-delay:0ms"></span>
       <span class="w-1 h-1 rounded-full bg-current animate-bounce" style="animation-delay:150ms"></span>
       <span class="w-1 h-1 rounded-full bg-current animate-bounce" style="animation-delay:300ms"></span>
+      {{ label }}
     </template>
     <template v-else>{{ label }}</template>
   </span>
