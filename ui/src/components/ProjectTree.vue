@@ -158,6 +158,8 @@ async function load() {
     tickets.value = t
     projects.value = p
     loadError.value = ''
+    // Sync any open TicketDetail after a reload (e.g. SSE reconnect)
+    for (const ticket of t) bus.emitTicketStatus(ticket.id, ticket.status)
   } catch (err) {
     loadError.value = err instanceof Error ? err.message : 'Failed to load'
   } finally {
