@@ -1,6 +1,11 @@
 <template>
-  <span class="text-sm px-2 py-0.5 rounded-full font-medium" :class="[chipClass, isActive ? 'animate-pulse' : '']">
-    {{ label }}
+  <span class="text-sm px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1" :class="chipClass">
+    <template v-if="isActive">
+      <span class="w-1 h-1 rounded-full bg-current animate-bounce" style="animation-delay:0ms"></span>
+      <span class="w-1 h-1 rounded-full bg-current animate-bounce" style="animation-delay:150ms"></span>
+      <span class="w-1 h-1 rounded-full bg-current animate-bounce" style="animation-delay:300ms"></span>
+    </template>
+    <template v-else>{{ label }}</template>
   </span>
 </template>
 
@@ -26,10 +31,10 @@ const chipClass = computed(() => {
 const label = computed(() => {
   switch (props.status) {
     case 'queued':   return 'Queued'
-    case 'running':  return '⚡ Running'
-    case 'paused':   return '⚠️ Paused'
-    case 'done':     return '✅ Done'
-    case 'failed':   return '❌ Failed'
+    case 'running':  return 'Running'
+    case 'paused':   return 'Paused'
+    case 'done':     return 'Done'
+    case 'failed':   return 'Failed'
     case 'deleted':   return 'Deleted'
     default:         return props.status
   }
