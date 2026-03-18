@@ -37,6 +37,7 @@ export const config = {
   retryDelayMs: optionalInt('RETRY_DELAY_MS', 60000),
   containerIdleTimeoutMs: optionalInt('CONTAINER_IDLE_TIMEOUT_MS', 600_000),
   projectsDir: required('PROJECTS_DIR'),
+  sessionsDir: required('SESSIONS_DIR'),
   projectImage: optional('PROJECT_IMAGE', 'q-project'),
   maxConcurrentTickets: optionalInt('MAX_CONCURRENT_TICKETS', 2),
   dryRun: optionalBool('DRY_RUN', false),
@@ -67,6 +68,7 @@ export function validate(): void {
   console.log(`[config]   Poll interval: ${config.pollIntervalMs}ms`)
   console.log(`[config]   Container idle timeout: ${config.containerIdleTimeoutMs}ms`)
   console.log(`[config]   Projects dir: ${config.projectsDir}`)
+  console.log(`[config]   Sessions dir: ${config.sessionsDir}`)
   console.log(`[config]   Project image: ${config.projectImage}`)
   console.log(`[config]   Container user: ${config.containerUser}`)
   console.log(`[config]   Dry run: ${config.dryRun}`)

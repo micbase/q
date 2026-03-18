@@ -73,8 +73,8 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
     HostConfig: {
       Binds: [
         `${config.projectsDir}/${project.name}:/workspace`,
-        `${config.projectsDir}/.claude-sessions/${ticketId}:/home/${config.containerUser}/.claude`,
-        `${config.projectsDir}/.claude-sessions/.credentials.json:/home/${config.containerUser}/.claude/.credentials.json`,
+        `${config.sessionsDir}/${ticketId}:/home/${config.containerUser}/.claude`,
+        `${config.sessionsDir}/.credentials.json:/home/${config.containerUser}/.claude/.credentials.json`,
       ],
       ...extraHostConfig,
     },
