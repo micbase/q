@@ -1,7 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import * as db from '../db/queries'
 import { broker, GLOBAL_CHANNEL } from '../broker/broker'
-import type { MessageStreamEvent } from '../../shared/types'
 
 interface TicketParams {
   id: string
@@ -54,24 +53,11 @@ export async function streamRoutes(app: FastifyInstance) {
       'X-Accel-Buffering': 'no',
     })
 
-    // Replay existing messages
+    // Replay existing messages — Message satisfies MessageStreamEvent structurally
     const messages = await db.getMessages(id)
     for (const msg of messages) {
-      const event: MessageStreamEvent = {
-        type: msg.type,
-        ticket_id: id,
-        content: msg.content,
-        role: msg.role,
-        tool_name: msg.tool_name,
-        tool_use_id: msg.tool_use_id,
-        tool_input: msg.tool_input,
-        tool_result_content: msg.tool_result_content,
-        tool_result_for_id: msg.tool_result_for_id,
-        is_error: msg.is_error,
-        parent_tool_use_id: msg.parent_tool_use_id,
-      }
       try {
-        res.write(`data: ${JSON.stringify(event)}\n\n`)
+        res.write(`data: ${JSON.stringify(msg)}\n\n`)
       } catch {
         return // client disconnected during replay
       }
