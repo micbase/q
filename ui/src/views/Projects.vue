@@ -49,7 +49,7 @@
           <label class="block text-sm font-medium text-gray-700 mb-1">Dev Env Variables</label>
           <textarea
             v-model="createForm.dev_envs"
-            rows="3"
+            rows="6"
             placeholder="PORT=3000&#10;NODE_ENV=development"
             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white resize-y font-mono"
           />
@@ -140,7 +140,7 @@
               <label class="block text-sm font-medium text-gray-700 mb-1">Dev Env Variables</label>
               <textarea
                 v-model="editForm.dev_envs"
-                rows="3"
+                rows="6"
                 placeholder="PORT=3000&#10;NODE_ENV=development"
                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white resize-y font-mono"
               />
