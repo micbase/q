@@ -395,6 +395,7 @@ const copyLabel = ref('Copy')
 const logsScrollEl = ref<HTMLElement | null>(null)
 let logsPollHandle: ReturnType<typeof setInterval> | null = null
 let es: EventSource | null = null
+let unsubStatus: (() => void) | undefined
 
 const isRunning = computed(() =>
   ticketStatus.value === 'running' || ticketStatus.value === 'queued'
@@ -629,10 +630,6 @@ function handleEvent(event: StreamEvent) {
     scrollToBottom()
   }
 
-  if (event.type === 'TicketStatusChange' && event.ticket_status) {
-    ticketStatus.value = event.ticket_status
-    bus.refresh()
-  }
 }
 
 function openStream(id: string) {
@@ -648,6 +645,7 @@ function openStream(id: string) {
 
 async function load(id: string) {
   es?.close()
+  unsubStatus?.()
   ticket.value = null
   messages.value = []
   ticketStatus.value = 'queued'
@@ -662,6 +660,10 @@ async function load(id: string) {
     error.value = err instanceof Error ? err.message : 'Failed to load ticket'
     return
   }
+
+  unsubStatus = bus.onTicketStatus((ticketId, status) => {
+    if (ticketId === id) ticketStatus.value = status
+  })
 
   openStream(id)
 }
@@ -691,6 +693,7 @@ watchEffect((onCleanup) => {
 
 onUnmounted(() => {
   es?.close()
+  unsubStatus?.()
   scrollEl.value?.removeEventListener('scroll', onScroll)
   if (logsPollHandle) clearInterval(logsPollHandle)
 })

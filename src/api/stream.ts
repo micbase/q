@@ -78,21 +78,6 @@ export async function streamRoutes(app: FastifyInstance) {
       }
     }
 
-    // Send current ticket status
-    const currentTicket = await db.getTicket(id)
-    if (currentTicket) {
-      const statusEvent: StreamEvent = {
-        type: 'TicketStatusChange',
-        ticket_id: id,
-        ticket_status: currentTicket.status,
-      }
-      try {
-        res.write(`data: ${JSON.stringify(statusEvent)}\n\n`)
-      } catch {
-        return // client disconnected during replay
-      }
-    }
-
     // Subscribe to live events
     broker.subscribe(id, res)
 

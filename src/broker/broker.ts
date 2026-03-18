@@ -22,23 +22,12 @@ class SSEBroker {
   publish(event: StreamEvent): void {
     const data = `data: ${JSON.stringify(event)}\n\n`
 
-    // Publish to per-ticket subscribers
-    const clients = this.clients.get(event.ticket_id)
-    if (clients) {
-      for (const res of clients) {
-        try {
-          res.write(data)
-        } catch {
-          clients.delete(res)
-        }
-      }
-    }
-
-    // Also fan-out status-change events to global subscribers
     const isStatusChange = event.type === 'TicketStatusChange'
       || event.type === 'ContainerStatusChange'
       || event.type === 'DevServerStatusChange'
+
     if (isStatusChange) {
+      // Status events → global channel only
       const globalClients = this.clients.get(GLOBAL_CHANNEL)
       if (globalClients) {
         for (const res of globalClients) {
@@ -46,6 +35,18 @@ class SSEBroker {
             res.write(data)
           } catch {
             globalClients.delete(res)
+          }
+        }
+      }
+    } else {
+      // Message events → per-ticket channel only
+      const clients = this.clients.get(event.ticket_id)
+      if (clients) {
+        for (const res of clients) {
+          try {
+            res.write(data)
+          } catch {
+            clients.delete(res)
           }
         }
       }

@@ -179,6 +179,7 @@ function handleGlobalEvent(event: StreamEvent) {
       // Unknown ticket — do a full reload to pick it up
       load()
     }
+    bus.emitTicketStatus(event.ticket_id, event.ticket_status)
   }
 }
 
