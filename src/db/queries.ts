@@ -34,6 +34,22 @@ async function provisionProjectDatabase(projectName: string): Promise<DbCredenti
     await client.end()
   }
 
+  // Grant schema-level access (required on PostgreSQL 15+ where public schema
+  // CREATE is revoked from PUBLIC by default)
+  const dbClient = new Client({
+    host: config.devDb.host,
+    port: config.devDb.port,
+    database: dbName,
+    user: config.devDb.user,
+    password: config.devDb.password,
+  })
+  await dbClient.connect()
+  try {
+    await dbClient.query(`GRANT ALL ON SCHEMA public TO "${dbName}"`)
+  } finally {
+    await dbClient.end()
+  }
+
   return {
     host: config.devDb.host,
     port: config.devDb.port,
