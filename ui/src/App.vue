@@ -2,7 +2,7 @@
   <div class="h-screen flex flex-col bg-white overflow-hidden">
     <!-- Desktop header (md+) -->
     <header class="hidden md:flex bg-white border-b border-gray-200 px-4 py-2.5 items-center gap-3 shrink-0">
-      <span class="font-bold text-lg tracking-tight">Q</span>
+      <RouterLink to="/" class="font-bold text-lg tracking-tight hover:text-gray-600 transition-colors">Q</RouterLink>
       <div class="flex-1" />
 
       <span v-if="status && status.paused_count > 0" class="text-sm text-orange-500 font-medium">
