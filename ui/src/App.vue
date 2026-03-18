@@ -133,7 +133,7 @@
         <!-- Backdrop -->
         <div class="absolute inset-0 bg-black/40" @click="mobileDrawerOpen = false"></div>
         <!-- Drawer panel -->
-        <div class="relative w-72 max-w-[80vw] bg-gray-50 h-full shadow-xl flex flex-col">
+        <div class="relative w-80 max-w-[85vw] bg-gray-50 h-full shadow-xl flex flex-col">
           <!-- Drawer header -->
           <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white shrink-0">
             <span class="font-semibold text-gray-800">Tickets</span>
