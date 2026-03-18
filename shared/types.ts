@@ -6,7 +6,7 @@ export type DevServerStatus = 'stopped' | 'starting' | 'running' | 'error'
 // Message classification stored in DB
 export type MessageType = 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'done' | 'paused' | 'error'
 
-// Shared tool-related fields across ClaudeEvent, StreamEvent, and Message
+// Shared tool-related fields across ClaudeEvent, MessageStreamEvent, and Message
 export interface ToolFields {
   tool_name?: string          // set for tool_use events
   tool_use_id?: string        // set for tool_use and tool_result events
@@ -38,7 +38,7 @@ export type StatusStreamEvent =
   | { type: 'ContainerStatusChange'; ticket_id: string; container_status: ContainerStatus }
   | { type: 'DevServerStatusChange'; ticket_id: string; dev_server_status: DevServerStatus }
 
-export type StreamEvent = MessageStreamEvent | StatusStreamEvent
+
 export interface DbCredential {
   host: string
   port: number
