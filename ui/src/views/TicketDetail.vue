@@ -251,7 +251,7 @@
       <button
         @click="sendReply"
         :disabled="!reply.trim() || inputDisabled"
-        class="bg-blue-600 text-white px-4 py-2 rounded-lg text-base font-medium hover:bg-blue-700 disabled:opacity-50 self-end"
+        class="bg-blue-600 text-white px-4 rounded-lg text-base font-medium hover:bg-blue-700 disabled:opacity-50 self-stretch"
       >Send</button>
     </div>
 
