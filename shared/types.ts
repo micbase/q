@@ -6,7 +6,7 @@ export type DevServerStatus = 'stopped' | 'starting' | 'running' | 'error'
 // Message classification stored in DB
 export type MessageType = 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'done' | 'paused' | 'error'
 
-// Shared tool-related fields across ClaudeEvent, StreamEvent, and Message
+// Shared tool-related fields across ClaudeEvent, MessageStreamEvent, and Message
 export interface ToolFields {
   tool_name?: string          // set for tool_use events
   tool_use_id?: string        // set for tool_use and tool_result events
@@ -25,17 +25,20 @@ export interface ClaudeEvent extends ToolFields {
   claude_session_id?: string
 }
 
-// SSE event sent to frontend
-export type StreamEventType = 'TicketStatusChange' | 'ContainerStatusChange' | 'DevServerStatusChange' | 'NewMessage'
+// SSE events sent to frontend — two distinct kinds routed to different channels
 
-export interface StreamEvent extends Partial<Omit<ClaudeEvent, 'type'>> {
-  type: StreamEventType
+// Per-ticket channel: a ClaudeEvent annotated with its ticket
+export interface MessageStreamEvent extends ClaudeEvent {
   ticket_id: string
-  message_type?: MessageType
-  ticket_status?: TicketStatus
-  container_status?: ContainerStatus
-  dev_server_status?: DevServerStatus
 }
+
+// Global channel: lightweight status-change events
+export type StatusStreamEvent =
+  | { type: 'TicketStatusChange';    ticket_id: string; ticket_status: TicketStatus }
+  | { type: 'ContainerStatusChange'; ticket_id: string; container_status: ContainerStatus }
+  | { type: 'DevServerStatusChange'; ticket_id: string; dev_server_status: DevServerStatus }
+
+
 export interface DbCredential {
   host: string
   port: number

@@ -1,4 +1,4 @@
-import type { Project, Ticket, Message, StreamEvent, CreateTicketInput, Status } from '../../shared/types'
+import type { Project, Ticket, Message, MessageStreamEvent, StatusStreamEvent, CreateTicketInput, Status } from '../../shared/types'
 
 const BASE = '/api'
 
@@ -100,7 +100,7 @@ export const api = {
   getLogs: (id: string): Promise<{ lines: string[] }> =>
     request(`/tickets/${id}/logs`),
 
-  streamEvents: (id: string, onEvent: (e: StreamEvent) => void, onError?: () => void): EventSource => {
+  streamMessageEvents: (id: string, onEvent: (e: MessageStreamEvent) => void, onError?: () => void): EventSource => {
     const es = new EventSource(`${BASE}/tickets/${id}/stream`)
     es.onmessage = e => {
       try {
@@ -110,6 +110,17 @@ export const api = {
     es.onerror = () => {
       onError?.()
     }
+    return es
+  },
+
+  streamStatusEvents: (onEvent: (e: StatusStreamEvent) => void, onOpen?: () => void): EventSource => {
+    const es = new EventSource(`${BASE}/events`)
+    es.onmessage = e => {
+      try {
+        onEvent(JSON.parse(e.data))
+      } catch { /* ignore parse errors */ }
+    }
+    es.onopen = () => onOpen?.()
     return es
   },
 }

@@ -337,7 +337,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, watchEffect } from 'vue'
 import { api } from '../api'
-import type { Ticket, StreamEvent, MessageType } from '../../../shared/types'
+import type { Ticket, MessageStreamEvent, MessageType } from '../../../shared/types'
 import { bus } from '../bus'
 import StatusChip from '../components/StatusChip.vue'
 import PriorityPips from '../components/PriorityPips.vue'
@@ -395,6 +395,7 @@ const copyLabel = ref('Copy')
 const logsScrollEl = ref<HTMLElement | null>(null)
 let logsPollHandle: ReturnType<typeof setInterval> | null = null
 let es: EventSource | null = null
+let unsubStatus: (() => void) | undefined
 
 const isRunning = computed(() =>
   ticketStatus.value === 'running' || ticketStatus.value === 'queued'
@@ -608,37 +609,30 @@ async function stopDevServer() {
   }
 }
 
-function handleEvent(event: StreamEvent) {
-  if (event.type === 'NewMessage') {
-    const idx = messages.value.length
-    messages.value.push({
-      message_type: event.message_type!,
-      content: event.content ?? '',
-      role: event.role,
-      tool_name: event.tool_name,
-      tool_use_id: event.tool_use_id,
-      tool_input: event.tool_input,
-      tool_result_content: event.tool_result_content,
-      tool_result_for_id: event.tool_result_for_id,
-      is_error: event.is_error,
-      parent_tool_use_id: event.parent_tool_use_id,
-    })
-    if (event.message_type === 'thinking') {
-      expanded.value.add(idx)
-    }
-    scrollToBottom()
+function handleEvent(event: MessageStreamEvent) {
+  const idx = messages.value.length
+  messages.value.push({
+    message_type: event.type,
+    content: event.content,
+    role: event.role,
+    tool_name: event.tool_name,
+    tool_use_id: event.tool_use_id,
+    tool_input: event.tool_input,
+    tool_result_content: event.tool_result_content,
+    tool_result_for_id: event.tool_result_for_id,
+    is_error: event.is_error,
+    parent_tool_use_id: event.parent_tool_use_id,
+  })
+  if (event.type === 'thinking') {
+    expanded.value.add(idx)
   }
-
-  if (event.type === 'TicketStatusChange' && event.ticket_status) {
-    ticketStatus.value = event.ticket_status
-    bus.refresh()
-  }
+  scrollToBottom()
 }
 
 function openStream(id: string) {
   es?.close()
 
-  es = api.streamEvents(id, handleEvent, () => {})
+  es = api.streamMessageEvents(id, handleEvent, () => {})
 
   es.onopen = () => {
     messages.value = []
@@ -648,6 +642,7 @@ function openStream(id: string) {
 
 async function load(id: string) {
   es?.close()
+  unsubStatus?.()
   ticket.value = null
   messages.value = []
   ticketStatus.value = 'queued'
@@ -662,6 +657,10 @@ async function load(id: string) {
     error.value = err instanceof Error ? err.message : 'Failed to load ticket'
     return
   }
+
+  unsubStatus = bus.onTicketStatus((ticketId, status) => {
+    if (ticketId === id) ticketStatus.value = status
+  })
 
   openStream(id)
 }
@@ -691,6 +690,7 @@ watchEffect((onCleanup) => {
 
 onUnmounted(() => {
   es?.close()
+  unsubStatus?.()
   scrollEl.value?.removeEventListener('scroll', onScroll)
   if (logsPollHandle) clearInterval(logsPollHandle)
 })

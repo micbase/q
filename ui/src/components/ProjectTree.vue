@@ -57,7 +57,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '../api'
-import type { Ticket, Project, TicketStatus } from '../../../shared/types'
+import type { Ticket, Project, TicketStatus, StatusStreamEvent } from '../../../shared/types'
 import { bus } from '../bus'
 
 const emit = defineEmits<{ close: [] }>()
@@ -158,6 +158,8 @@ async function load() {
     tickets.value = t
     projects.value = p
     loadError.value = ''
+    // Sync any open TicketDetail after a reload (e.g. SSE reconnect)
+    for (const ticket of t) bus.emitTicketStatus(ticket.id, ticket.status)
   } catch (err) {
     loadError.value = err instanceof Error ? err.message : 'Failed to load'
   } finally {
@@ -168,11 +170,29 @@ async function load() {
 watch(() => route.fullPath, load)
 
 let unsubBus: (() => void) | undefined
+let globalEs: EventSource | undefined
+
+function handleGlobalEvent(event: StatusStreamEvent) {
+  if (event.type === 'TicketStatusChange' && event.ticket_status) {
+    const t = tickets.value.find(t => t.id === event.ticket_id)
+    if (t) {
+      t.status = event.ticket_status
+    } else {
+      // Unknown ticket — do a full reload to pick it up
+      load()
+    }
+    bus.emitTicketStatus(event.ticket_id, event.ticket_status)
+  }
+}
 
 onMounted(() => {
   load()
   unsubBus = bus.onRefresh(load)
+  globalEs = api.streamStatusEvents(handleGlobalEvent, load)
 })
 
-onUnmounted(() => { unsubBus?.() })
+onUnmounted(() => {
+  unsubBus?.()
+  globalEs?.close()
+})
 </script>

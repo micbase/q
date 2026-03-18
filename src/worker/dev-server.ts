@@ -17,7 +17,7 @@ const pids = new Map<string, number>()
 
 async function setStatus(ticketId: string, status: DevServerStatus): Promise<void> {
   await db.updateTicketDevServerStatus(ticketId, status)
-  broker.publish({ type: 'DevServerStatusChange', ticket_id: ticketId, dev_server_status: status })
+  broker.publishStatus({ type: 'DevServerStatusChange', ticket_id: ticketId, dev_server_status: status })
 }
 
 export async function startDevServer(
