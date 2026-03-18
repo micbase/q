@@ -1,9 +1,9 @@
 <template>
   <span class="text-sm px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1" :class="chipClass">
     <template v-if="isActive">
-      <span class="w-1 h-1 rounded-full bg-current animate-bounce" style="animation-delay:0ms"></span>
-      <span class="w-1 h-1 rounded-full bg-current animate-bounce" style="animation-delay:150ms"></span>
-      <span class="w-1 h-1 rounded-full bg-current animate-bounce" style="animation-delay:300ms"></span>
+      <span class="dot" style="animation-delay:0ms"></span>
+      <span class="dot" style="animation-delay:200ms"></span>
+      <span class="dot" style="animation-delay:400ms"></span>
       {{ label }}
     </template>
     <template v-else>{{ label }}</template>
@@ -41,3 +41,17 @@ const label = computed(() => {
   }
 })
 </script>
+
+<style scoped>
+@keyframes dot-flash {
+  0%, 100% { opacity: 0.25; }
+  50%       { opacity: 1; }
+}
+.dot {
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: dot-flash 1.2s ease-in-out infinite;
+}
+</style>
