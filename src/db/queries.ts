@@ -13,16 +13,18 @@ function sanitizeDbName(name: string): string {
   return dbName.slice(0, 63)
 }
 
-async function provisionProjectDatabase(projectName: string): Promise<DbCredential> {
+async function provisionProjectDatabase(projectName: string): Promise<DbCredential | null> {
+  if (!config.devDb.host) return null
+
   const dbName = sanitizeDbName(projectName)
   const password = generatePassword()
 
   const client = new Client({
-    host: config.db.host,
-    port: config.db.port,
+    host: config.devDb.host,
+    port: config.devDb.port,
     database: 'postgres',
-    user: config.db.user,
-    password: config.db.password,
+    user: config.devDb.user,
+    password: config.devDb.password,
   })
   await client.connect()
   try {
@@ -33,8 +35,8 @@ async function provisionProjectDatabase(projectName: string): Promise<DbCredenti
   }
 
   return {
-    host: config.db.host,
-    port: config.db.port,
+    host: config.devDb.host,
+    port: config.devDb.port,
     database: dbName,
     user: dbName,
     password,
@@ -79,7 +81,7 @@ export async function insertProject(name: string, githubRepo?: string, devComman
   const dbCredential = await provisionProjectDatabase(name)
   await q.query(
     'INSERT INTO projects (id, name, github_repo, dev_command, dev_envs, db_credential, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-    [id, name, githubRepo ?? null, devCommand ?? null, devEnvs ?? null, JSON.stringify(dbCredential), ts, ts]
+    [id, name, githubRepo ?? null, devCommand ?? null, devEnvs ?? null, dbCredential ? JSON.stringify(dbCredential) : null, ts, ts]
   )
   return (await getProject(id, q))!
 }
