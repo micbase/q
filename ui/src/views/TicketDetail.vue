@@ -140,7 +140,7 @@
               <span class="text-purple-400">{{ expanded.has(g.idx) ? '▼' : '▶' }}</span>
               <span class="font-semibold text-purple-700 flex-1">Thinking</span>
             </div>
-            <div v-if="expanded.has(g.idx)" class="px-3 py-2 text-sm text-purple-900 whitespace-pre-wrap bg-purple-50/50 border-t border-purple-200">{{ g.msg!.content }}</div>
+            <div v-if="expanded.has(g.idx)" class="px-3 py-2 text-sm text-purple-900 bg-purple-50/50 border-t border-purple-200 markdown-body" v-html="renderMarkdown(g.msg!.content)"></div>
           </div>
         </div>
 
