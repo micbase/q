@@ -97,6 +97,9 @@ export const api = {
   restartDevServer: (id: string): Promise<void> =>
     request(`/tickets/${id}/dev/restart`, { method: 'POST' }),
 
+  getLogs: (id: string): Promise<{ lines: string[] }> =>
+    request(`/tickets/${id}/logs`),
+
   streamEvents: (id: string, onEvent: (e: StreamEvent) => void, onError?: () => void): EventSource => {
     const es = new EventSource(`${BASE}/tickets/${id}/stream`)
     es.onmessage = e => {

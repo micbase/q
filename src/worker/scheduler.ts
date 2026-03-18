@@ -9,7 +9,13 @@ import * as provisioner from './provisioner'
 import { startDevServer } from './dev-server'
 import * as notify from './notify'
 import { emitMessage, emitTicketStatusChange } from '../broker/emit'
+import { appendLog } from '../logs/log-buffer'
 import ms from 'ms'
+
+function ticketLog(ticketId: string, msg: string): void {
+  console.log(`[scheduler][${ticketId.slice(0, 8)}] ${msg}`)
+  appendLog(ticketId, msg)
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -77,11 +83,13 @@ class Scheduler {
     if (isResume) {
       const lastMsg = await db.getLastUserMessage(ticket.id)
       prompt = lastMsg ?? ''
-      console.log(`[scheduler] Resuming ticket ${ticket.id} with session ${sessionId}`)
+      ticketLog(ticket.id, `resuming session ${sessionId}`)
     } else {
       prompt = buildInitialPrompt(ticket)
-      console.log(`[scheduler] Starting ticket ${ticket.id} "${ticket.title}"`)
+      ticketLog(ticket.id, `starting: "${ticket.title}"`)
     }
+
+    const log = (line: string) => appendLog(ticket.id, line)
 
     let containerId: string | undefined
     let logTag: string | undefined
@@ -90,16 +98,19 @@ class Scheduler {
       let eventSource: AsyncGenerator<ClaudeEvent>
 
       if (config.dryRun) {
-        eventSource = runDrySession(ticket, isResume)
+        ticketLog(ticket.id, 'dry run mode — skipping Docker + Claude')
+        eventSource = runDrySession(ticket, isResume, log)
       } else {
         const project = await db.getProject(ticket.project_id)
         if (!project) throw new Error(`Project ${ticket.project_id} not found`)
         containerId = await provisioner.ensureRunning(project, ticket.id)
         logTag = provisioner.getContainerTag(ticket.id)
+        ticketLog(ticket.id, `container ready: ${containerId.slice(0, 12)}`)
         let workDir: string | undefined
         if (project.github_repo) {
           try {
             workDir = await ensureWorktree(containerId, ticket.id, logTag)
+            ticketLog(ticket.id, `worktree: ${workDir}`)
           } catch (err) {
             console.error(`[scheduler] Failed to create worktree for ${ticket.id}:`, err)
             throw err
@@ -108,12 +119,13 @@ class Scheduler {
         if (project.dev_command) {
           try {
             await startDevServer(containerId, ticket.id, project.dev_command, workDir ?? '/workspace', logTag, project.dev_envs)
+            ticketLog(ticket.id, 'dev server started')
           } catch (err) {
             console.error(`[scheduler] Failed to start dev server for ${ticket.id}:`, err)
             throw err
           }
         }
-        eventSource = callClaude(containerId, prompt, logTag, sessionId ?? undefined, workDir)
+        eventSource = callClaude(containerId, prompt, logTag, sessionId ?? undefined, workDir, log)
       }
 
       for await (const event of eventSource) {
@@ -122,7 +134,7 @@ class Scheduler {
             await emitMessage(ticket.id, '', 'done', event.role, { claudeSessionId: event.claude_session_id }, tx)
             await emitTicketStatusChange(ticket.id, 'done', undefined, tx)
           })
-          console.log(`[scheduler] Ticket ${ticket.id} completed`)
+          ticketLog(ticket.id, 'completed')
           await notify.send(`✅ Done: ${ticket.title}`)
           if (!config.dryRun) provisioner.scheduleIdleStop(ticket.id)
           break
@@ -133,7 +145,7 @@ class Scheduler {
             await emitMessage(ticket.id, '', 'paused', event.role, { claudeSessionId: event.claude_session_id }, tx)
             await emitTicketStatusChange(ticket.id, 'paused', undefined, tx)
           })
-          console.log(`[scheduler] Ticket ${ticket.id} paused (waiting for input)`)
+          ticketLog(ticket.id, 'paused — waiting for input')
           await notify.send(`💬 Input needed: ${ticket.title}`, event.content)
           if (!config.dryRun) provisioner.scheduleIdleStop(ticket.id)
           break
@@ -144,7 +156,7 @@ class Scheduler {
             await emitMessage(ticket.id, event.content, 'error', event.role, { claudeSessionId: event.claude_session_id }, tx)
             await emitTicketStatusChange(ticket.id, 'failed', event.content, tx)
           })
-          console.error(`[scheduler] Ticket ${ticket.id} errored: ${event.content}`)
+          ticketLog(ticket.id, `error: ${event.content}`)
           await notify.send(`❌ Failed: ${ticket.title}`, event.content)
           if (!config.dryRun) provisioner.scheduleIdleStop(ticket.id)
           break
@@ -166,11 +178,14 @@ class Scheduler {
         await emitTicketStatusChange(ticket.id, 'queued')
         const delay = parseResetDelay(err) ?? config.retryDelayMs
         await notify.send(`⏳ Quota exceeded`, `Retrying in ${ms(delay)}`)
-        console.warn(`[scheduler] Quota error, sleeping ${delay}ms`)
+        const msg = `quota error — retrying in ${ms(delay)}`
+        console.warn(`[scheduler] ${msg}`)
+        appendLog(ticket.id, msg)
         await sleep(delay)
       } else {
         const errMsg = err instanceof Error ? err.message : String(err)
         console.error(`[scheduler] Ticket ${ticket.id} failed:`, err)
+        appendLog(ticket.id, `failed: ${errMsg}`)
         await withTransaction(async (tx) => {
           await emitMessage(ticket.id, errMsg, 'error', 'system', {}, tx)
           await emitTicketStatusChange(ticket.id, 'failed', errMsg, tx)

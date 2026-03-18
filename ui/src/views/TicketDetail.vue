@@ -44,11 +44,10 @@
                 v-if="desktopMenuOpen"
                 class="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
               >
-                <RouterLink
-                  to="/containers"
-                  @click="desktopMenuOpen = false"
-                  class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >View logs</RouterLink>
+                <button
+                  @click="openLogs(); desktopMenuOpen = false"
+                  class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >View logs</button>
                 <div class="border-t border-gray-100 my-1"></div>
                 <button
                   @click="stopDevServer(); desktopMenuOpen = false"
@@ -274,11 +273,10 @@
               :disabled="devActionPending"
               class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-gray-800 hover:bg-gray-50 disabled:opacity-40"
             >Restart dev server</button>
-            <RouterLink
-              to="/containers"
-              @click="mobileSheetOpen = false"
-              class="flex items-center gap-3 px-5 py-3.5 text-base text-gray-800 hover:bg-gray-50"
-            >View logs</RouterLink>
+            <button
+              @click="openLogs(); mobileSheetOpen = false"
+              class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-gray-800 hover:bg-gray-50"
+            >View logs</button>
             <div class="border-t border-gray-100 my-1 mx-5"></div>
             <button
               @click="stopDevServer(); mobileSheetOpen = false"
@@ -298,11 +296,46 @@
       class="fixed inset-0 z-40"
       @click="desktopMenuOpen = false"
     ></div>
+
+    <!-- ===== LOGS DRAWER ===== -->
+    <Transition name="logs">
+      <div v-if="logsOpen" class="fixed inset-0 z-50 flex flex-col justify-end md:justify-center md:items-center">
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black/50" @click="closeLogs"></div>
+        <!-- Panel -->
+        <div class="relative bg-gray-950 text-gray-100 w-full md:w-3xl md:max-w-3xl md:rounded-xl md:max-h-[80vh] flex flex-col shadow-2xl max-h-[85vh]">
+          <!-- Header -->
+          <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
+            <div class="flex items-center gap-2">
+              <span class="font-semibold text-sm">Logs</span>
+              <span class="font-mono text-xs text-gray-500">{{ props.id }}</span>
+              <span v-if="isRunning" class="text-xs text-amber-400 animate-pulse">● live</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                v-if="logLines.length > 0"
+                @click="copyLogs"
+                class="text-xs text-gray-400 hover:text-gray-200 border border-gray-700 rounded px-2 py-1 transition-colors"
+              >{{ copyLabel }}</button>
+              <button
+                @click="closeLogs"
+                class="text-gray-400 hover:text-gray-100 text-xl leading-none px-1"
+              >×</button>
+            </div>
+          </div>
+          <!-- Log lines -->
+          <div ref="logsScrollEl" class="flex-1 overflow-y-auto px-4 py-3 font-mono text-xs leading-relaxed">
+            <div v-if="logLines.length === 0" class="text-gray-500 text-center py-8">No logs yet.</div>
+            <div v-for="(line, i) in logLines" :key="i" class="whitespace-pre-wrap break-all text-gray-300">{{ line }}</div>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick, watchEffect } from 'vue'
 import { api } from '../api'
 import type { Ticket, StreamEvent, MessageType } from '../../../shared/types'
 import { bus } from '../bus'
@@ -356,6 +389,11 @@ const mobileSheetOpen = ref(false)
 const desktopMenuOpen = ref(false)
 const desktopMenuRef = ref<HTMLElement | null>(null)
 const devActionPending = ref(false)
+const logsOpen = ref(false)
+const logLines = ref<string[]>([])
+const copyLabel = ref('Copy')
+const logsScrollEl = ref<HTMLElement | null>(null)
+let logsPollHandle: ReturnType<typeof setInterval> | null = null
 let es: EventSource | null = null
 
 const isRunning = computed(() =>
@@ -507,6 +545,35 @@ function scrollToBottom() {
   })
 }
 
+async function fetchLogs() {
+  try {
+    const data = await api.getLogs(props.id)
+    logLines.value = data.lines
+    nextTick(() => {
+      if (logsScrollEl.value) {
+        logsScrollEl.value.scrollTop = logsScrollEl.value.scrollHeight
+      }
+    })
+  } catch { /* ignore */ }
+}
+
+function openLogs() {
+  logsOpen.value = true
+  fetchLogs()
+}
+
+function closeLogs() {
+  logsOpen.value = false
+}
+
+async function copyLogs() {
+  try {
+    await navigator.clipboard.writeText(logLines.value.join('\n'))
+    copyLabel.value = 'Copied!'
+    setTimeout(() => { copyLabel.value = 'Copy' }, 2000)
+  } catch { /* ignore */ }
+}
+
 async function sendReply() {
   if (!reply.value.trim() || sending.value) return
   sending.value = true
@@ -604,9 +671,28 @@ onMounted(() => {
   nextTick(() => scrollEl.value?.addEventListener('scroll', onScroll, { passive: true }))
 })
 watch(() => props.id, load)
+
+// Poll logs every 2s while the drawer is open and the ticket is running
+watchEffect((onCleanup) => {
+  if (logsPollHandle) {
+    clearInterval(logsPollHandle)
+    logsPollHandle = null
+  }
+  if (logsOpen.value && isRunning.value) {
+    logsPollHandle = setInterval(fetchLogs, 2000)
+  }
+  onCleanup(() => {
+    if (logsPollHandle) {
+      clearInterval(logsPollHandle)
+      logsPollHandle = null
+    }
+  })
+})
+
 onUnmounted(() => {
   es?.close()
   scrollEl.value?.removeEventListener('scroll', onScroll)
+  if (logsPollHandle) clearInterval(logsPollHandle)
 })
 </script>
 
@@ -688,5 +774,14 @@ onUnmounted(() => {
 .sheet-enter-from .relative,
 .sheet-leave-to .relative {
   transform: translateY(100%);
+}
+
+.logs-enter-active,
+.logs-leave-active {
+  transition: opacity 0.15s ease;
+}
+.logs-enter-from,
+.logs-leave-to {
+  opacity: 0;
 }
 </style>

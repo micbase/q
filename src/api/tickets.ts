@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import * as db from '../db/queries'
 import { withTransaction } from '../db/connection'
 import { emitMessage, emitTicketStatusChange } from '../broker/emit'
+import { getLogs } from '../logs/log-buffer'
 
 interface CreateTicketBody {
   project_id: string
@@ -77,6 +78,13 @@ export async function ticketRoutes(app: FastifyInstance) {
     if (updated === null) return reply.status(404).send({ error: 'Not found' })
     if ('conflict' in updated) return reply.status(409).send({ error: 'Can only edit queued tickets' })
     return reply.send(updated)
+  })
+
+  // GET /api/tickets/:id/logs
+  app.get<{ Params: TicketParams }>('/tickets/:id/logs', async (req, reply) => {
+    const ticket = await db.getTicket(req.params.id)
+    if (!ticket) return reply.status(404).send({ error: 'Not found' })
+    return reply.send({ lines: getLogs(req.params.id) })
   })
 
   // DELETE /api/tickets/:id — soft delete (sets status to cancelled)
