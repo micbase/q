@@ -179,4 +179,5 @@ export async function stopAll(): Promise<void> {
     }
   }))
   containers.clear()
+  await db.resetAllContainerStatuses()
 }

@@ -177,6 +177,13 @@ export async function nextQueuedTicket(q: DB = defaultDB): Promise<Ticket | null
   return rows.length ? mapTicket(rows[0]) : null
 }
 
+export async function resetAllContainerStatuses(q: DB = defaultDB): Promise<void> {
+  await q.query(
+    "UPDATE tickets SET container_status = 'stopped', dev_server_status = 'stopped', updated_at = $1 WHERE container_status != 'stopped' OR dev_server_status != 'stopped'",
+    [now()]
+  )
+}
+
 export async function updateTicketContainerStatus(id: string, containerStatus: ContainerStatus, q: DB = defaultDB): Promise<void> {
   await q.query(
     'UPDATE tickets SET container_status = $1, updated_at = $2 WHERE id = $3',
