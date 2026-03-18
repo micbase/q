@@ -1,9 +1,45 @@
 import { nanoid, customAlphabet } from 'nanoid'
+import { Client } from 'pg'
 import { config } from '../config'
 import { db as defaultDB, type DB } from './connection'
-import type { Project, Ticket, Message, MessageType, TicketStatus, ContainerStatus, DevServerStatus } from '../../shared/types'
+import type { Project, Ticket, Message, MessageType, TicketStatus, ContainerStatus, DevServerStatus, DbCredential } from '../../shared/types'
 
 const generateTicketId = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 21)
+const generatePassword = customAlphabet('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 10)
+
+function sanitizeDbName(name: string): string {
+  let dbName = name.toLowerCase().replace(/[^a-z0-9_]/g, '_')
+  if (/^[0-9]/.test(dbName)) dbName = 'p_' + dbName
+  return dbName.slice(0, 63)
+}
+
+async function provisionProjectDatabase(projectName: string): Promise<DbCredential> {
+  const dbName = sanitizeDbName(projectName)
+  const password = generatePassword()
+
+  const client = new Client({
+    host: config.db.host,
+    port: config.db.port,
+    database: 'postgres',
+    user: config.db.user,
+    password: config.db.password,
+  })
+  await client.connect()
+  try {
+    await client.query(`CREATE USER "${dbName}" WITH PASSWORD '${password}'`)
+    await client.query(`CREATE DATABASE "${dbName}" OWNER "${dbName}"`)
+  } finally {
+    await client.end()
+  }
+
+  return {
+    host: config.db.host,
+    port: config.db.port,
+    database: dbName,
+    user: dbName,
+    password,
+  }
+}
 
 function buildDevUrl(projectName: string, ticketId: string): string | null {
   if (!config.proxyDomain) return null
@@ -40,9 +76,10 @@ export async function getProjectByName(name: string, q: DB = defaultDB): Promise
 export async function insertProject(name: string, githubRepo?: string, devCommand?: string, devEnvs?: string, q: DB = defaultDB): Promise<Project> {
   const id = nanoid()
   const ts = now()
+  const dbCredential = await provisionProjectDatabase(name)
   await q.query(
-    'INSERT INTO projects (id, name, github_repo, dev_command, dev_envs, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-    [id, name, githubRepo ?? null, devCommand ?? null, devEnvs ?? null, ts, ts]
+    'INSERT INTO projects (id, name, github_repo, dev_command, dev_envs, db_credential, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+    [id, name, githubRepo ?? null, devCommand ?? null, devEnvs ?? null, JSON.stringify(dbCredential), ts, ts]
   )
   return (await getProject(id, q))!
 }
@@ -286,6 +323,7 @@ function mapProject(row: any): Project {
     github_repo: row.github_repo ?? undefined,
     dev_command: row.dev_command ?? undefined,
     dev_envs: row.dev_envs ?? undefined,
+    db_credential: row.db_credential ?? undefined,
     status: row.status,
     created_at: Number(row.created_at),
     updated_at: Number(row.updated_at),

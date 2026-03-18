@@ -36,12 +36,21 @@ export interface StreamEvent extends Partial<Omit<ClaudeEvent, 'type'>> {
   container_status?: ContainerStatus
   dev_server_status?: DevServerStatus
 }
+export interface DbCredential {
+  host: string
+  port: number
+  database: string
+  user: string
+  password: string
+}
+
 export interface Project {
   id: string
   name: string
   github_repo?: string
   dev_command?: string
   dev_envs?: string
+  db_credential?: DbCredential
   status: ProjectStatus
   created_at: number
   updated_at: number
