@@ -1,23 +1,121 @@
 <template>
-  <div class="flex flex-col h-full">
-    <!-- Header -->
-    <div class="px-5 pt-4 pb-3 border-b border-gray-100 shrink-0">
-      <div class="flex items-center gap-2 mb-0.5">
-        <h1 class="font-semibold text-lg flex-1 truncate">{{ ticket?.title }}</h1>
-        <a
-          v-if="devUrl"
-          :href="devUrl"
-          target="_blank"
-          class="text-sm text-blue-600 hover:text-blue-800 font-medium shrink-0"
-        >dev</a>
-        <StatusChip v-if="ticket" :status="ticketStatus" />
+  <div class="flex flex-col h-full relative">
+
+    <!-- ===== DESKTOP HEADER (md+) ===== -->
+    <div class="hidden md:block shrink-0">
+      <div class="px-5 pt-4 pb-3 border-b border-gray-100">
+        <div class="flex items-center gap-3">
+          <!-- Left: title + running badge -->
+          <div class="flex items-center gap-2 flex-1 min-w-0">
+            <h1 class="font-semibold text-lg truncate">{{ ticket?.title }}</h1>
+            <!-- Pulsing dots when running -->
+            <span v-if="isRunning" class="flex items-center gap-0.5 shrink-0" title="Claude Code is running">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce" style="animation-delay:0ms"></span>
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce" style="animation-delay:150ms"></span>
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce" style="animation-delay:300ms"></span>
+            </span>
+          </div>
+
+          <!-- Right: dev link + restart + overflow -->
+          <div class="flex items-center gap-2 shrink-0">
+            <a
+              v-if="devUrl"
+              :href="devUrl"
+              target="_blank"
+              class="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5"
+            >dev <span class="text-xs">↗</span></a>
+
+            <button
+              v-if="ticket"
+              @click="restartDevServer"
+              :disabled="devActionPending"
+              title="Restart dev server"
+              class="text-gray-500 hover:text-gray-800 p-1 rounded hover:bg-gray-100 transition-colors disabled:opacity-40 text-base leading-none"
+            >↺</button>
+
+            <!-- ··· overflow menu -->
+            <div class="relative" ref="desktopMenuRef">
+              <button
+                @click="desktopMenuOpen = !desktopMenuOpen"
+                class="text-gray-500 hover:text-gray-800 px-1.5 py-1 rounded hover:bg-gray-100 transition-colors font-bold tracking-widest text-sm leading-none"
+              >···</button>
+              <div
+                v-if="desktopMenuOpen"
+                class="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
+              >
+                <RouterLink
+                  to="/containers"
+                  @click="desktopMenuOpen = false"
+                  class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >View logs</RouterLink>
+                <div class="border-t border-gray-100 my-1"></div>
+                <button
+                  @click="stopDevServer(); desktopMenuOpen = false"
+                  :disabled="devActionPending"
+                  class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-40"
+                >Stop server</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subtitle row -->
+        <div v-if="ticket" class="text-sm text-gray-400 flex items-center gap-2 mt-0.5">
+          <span>{{ project?.name ?? '' }}</span>
+          <span>·</span>
+          <PriorityPips :priority="ticket.priority" />
+          <span>·</span>
+          <span>{{ relativeTime(ticket.created_at) }}</span>
+        </div>
       </div>
-      <div v-if="ticket" class="text-sm text-gray-400 flex items-center gap-2">
-        <span>{{ project?.name ?? '' }}</span>
-        <span>·</span>
-        <PriorityPips :priority="ticket.priority" />
-        <span>·</span>
-        <span>{{ relativeTime(ticket.created_at) }}</span>
+
+      <!-- 2px animated progress bar (running) -->
+      <div class="h-0.5 w-full overflow-hidden bg-transparent">
+        <div
+          v-if="isRunning"
+          class="h-full bg-amber-400 animate-progress-bar"
+        ></div>
+      </div>
+    </div>
+
+    <!-- ===== MOBILE HEADER (< md) ===== -->
+    <div class="md:hidden shrink-0">
+      <div class="px-3 py-2.5 border-b border-gray-100 flex items-center gap-2">
+        <!-- Hamburger -->
+        <button
+          @click="bus.openDrawer()"
+          class="text-gray-500 hover:text-gray-800 p-1.5 rounded hover:bg-gray-100 transition-colors shrink-0"
+          aria-label="Open ticket list"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+
+        <!-- Center: title + running badge -->
+        <div class="flex items-center gap-1.5 flex-1 min-w-0">
+          <span class="font-semibold text-base truncate">{{ ticket?.title ?? 'Loading...' }}</span>
+          <span v-if="isRunning" class="flex items-center gap-0.5 shrink-0">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce" style="animation-delay:0ms"></span>
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce" style="animation-delay:150ms"></span>
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce" style="animation-delay:300ms"></span>
+          </span>
+        </div>
+
+        <!-- Right: ··· -->
+        <button
+          @click="mobileSheetOpen = true"
+          class="text-gray-500 hover:text-gray-800 px-1.5 py-1 rounded hover:bg-gray-100 transition-colors font-bold tracking-widest text-sm leading-none shrink-0"
+          aria-label="Actions"
+        >···</button>
+      </div>
+
+      <!-- 2px progress bar (mobile) -->
+      <div class="h-0.5 w-full overflow-hidden bg-transparent">
+        <div
+          v-if="isRunning"
+          class="h-full bg-amber-400 animate-progress-bar"
+        ></div>
       </div>
     </div>
 
@@ -76,7 +174,7 @@
               <span v-if="g.result?.is_error" class="text-red-500 text-xs font-medium ml-auto shrink-0">error</span>
             </div>
 
-            <!-- TodoWrite: checkbox list (always shown, not expandable) -->
+            <!-- TodoWrite: checkbox list -->
             <template v-if="g.use?.tool_name === 'TodoWrite' && todoItems(g.use.content)">
               <div class="px-3 py-2 space-y-1 bg-white">
                 <div v-for="todo in todoItems(g.use.content)" :key="todo.id" class="flex items-start gap-2 text-sm" :class="todo.status === 'in_progress' ? 'bg-amber-50 -mx-3 px-3 py-0.5 border-l-2 border-amber-400' : ''">
@@ -100,8 +198,6 @@
             <template v-else-if="expanded.has(g.idx) && g.use?.tool_name && isExpandable(g.use.tool_name)">
               <div v-if="toolBody(g.use.tool_name, g.use.content)"
                 class="px-3 py-2 font-mono text-xs text-blue-900 whitespace-pre-wrap max-h-64 overflow-y-auto bg-blue-50 border-t border-gray-300">{{ toolBody(g.use.tool_name, g.use.content) }}</div>
-
-              <!-- Expanded: tool result -->
               <div v-if="g.result && isExpandable(g.use.tool_name)" :class="[
                 'px-3 py-2 font-mono text-xs whitespace-pre-wrap max-h-96 overflow-y-auto border-t border-gray-300',
                 g.result.is_error ? 'bg-red-50 text-red-800' : 'bg-gray-50 text-gray-700'
@@ -110,7 +206,7 @@
           </div>
         </div>
 
-        <!-- Read group (multiple consecutive Reads collapsed into one row) -->
+        <!-- Read group -->
         <div v-else-if="g.kind === 'read_group'" class="flex justify-start">
           <div class="border border-gray-300 rounded-lg text-sm overflow-hidden max-w-full w-full">
             <div
@@ -147,32 +243,75 @@
           </div>
         </div>
       </template>
-
     </div>
 
     <!-- Reply error -->
-    <div v-if="replyError" class="px-5 py-1">
+    <div v-if="replyError" class="px-5 py-1 shrink-0">
       <p class="text-red-600 text-sm">{{ replyError }}</p>
     </div>
 
-    <!-- Reply box (when paused or done) -->
-    <div class="border-t border-gray-200 px-5 py-3 flex gap-2 shrink-0">
-      <input
+    <!-- Reply box -->
+    <div class="border-t border-gray-200 px-4 py-3 flex gap-2 shrink-0">
+      <textarea
         v-model="reply"
-        type="text"
         :placeholder="ticketStatus === 'done' ? 'Follow up...' : 'Type your reply...'"
         :disabled="inputDisabled"
-        @keydown.enter="sendReply"
-        class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-50"
-      />
+        @keydown.enter.exact.prevent="sendReply"
+        rows="2"
+        class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-50 resize-none"
+      ></textarea>
       <button
         @click="sendReply"
         :disabled="!reply.trim() || inputDisabled"
-        class="bg-blue-600 text-white px-4 py-2 rounded-lg text-base font-medium hover:bg-blue-700 disabled:opacity-50"
-      >
-        Send
-      </button>
+        class="bg-blue-600 text-white px-4 py-2 rounded-lg text-base font-medium hover:bg-blue-700 disabled:opacity-50 self-end"
+      >Send</button>
     </div>
+
+    <!-- ===== MOBILE BOTTOM SHEET ===== -->
+    <Transition name="sheet">
+      <div v-if="mobileSheetOpen" class="fixed inset-0 z-50 md:hidden flex flex-col justify-end">
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black/40" @click="mobileSheetOpen = false"></div>
+        <!-- Sheet -->
+        <div class="relative bg-white rounded-t-2xl pb-safe shadow-xl">
+          <div class="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-2"></div>
+          <div class="py-2">
+            <a
+              v-if="devUrl"
+              :href="devUrl"
+              target="_blank"
+              @click="mobileSheetOpen = false"
+              class="flex items-center gap-3 px-5 py-3.5 text-base text-blue-600 hover:bg-gray-50"
+            >Open dev server <span class="text-sm">↗</span></a>
+            <button
+              @click="restartDevServer(); mobileSheetOpen = false"
+              :disabled="devActionPending"
+              class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-gray-800 hover:bg-gray-50 disabled:opacity-40"
+            >Restart dev server</button>
+            <RouterLink
+              to="/containers"
+              @click="mobileSheetOpen = false"
+              class="flex items-center gap-3 px-5 py-3.5 text-base text-gray-800 hover:bg-gray-50"
+            >View logs</RouterLink>
+            <div class="border-t border-gray-100 my-1 mx-5"></div>
+            <button
+              @click="stopDevServer(); mobileSheetOpen = false"
+              :disabled="devActionPending"
+              class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-red-600 hover:bg-red-50 disabled:opacity-40"
+            >Stop server</button>
+          </div>
+          <!-- bottom safe area spacer -->
+          <div class="h-4"></div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Click-outside handler for desktop overflow menu -->
+    <div
+      v-if="desktopMenuOpen"
+      class="fixed inset-0 z-40"
+      @click="desktopMenuOpen = false"
+    ></div>
   </div>
 </template>
 
@@ -181,7 +320,6 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { api } from '../api'
 import type { Ticket, Project, StreamEvent, MessageType } from '../../../shared/types'
 import { bus } from '../bus'
-import StatusChip from '../components/StatusChip.vue'
 import PriorityPips from '../components/PriorityPips.vue'
 import EditDiff from '../components/EditDiff.vue'
 
@@ -206,11 +344,11 @@ interface ReadEntry {
 
 interface GroupedMsg {
   kind: 'msg' | 'tool_pair' | 'read_group'
-  msg?: DisplayMsg          // for kind === 'msg'
-  use?: DisplayMsg          // for kind === 'tool_pair'
-  result?: DisplayMsg       // for kind === 'tool_pair' (may arrive later)
-  reads?: ReadEntry[]       // for kind === 'read_group'
-  idx: number               // original index for expand tracking
+  msg?: DisplayMsg
+  use?: DisplayMsg
+  result?: DisplayMsg
+  reads?: ReadEntry[]
+  idx: number
 }
 
 const props = defineProps<{ id: string }>()
@@ -226,16 +364,23 @@ const replyError = ref('')
 const scrollEl = ref<HTMLElement | null>(null)
 const expanded = ref<Set<number>>(new Set())
 const autoScroll = ref(true)
+const mobileSheetOpen = ref(false)
+const desktopMenuOpen = ref(false)
+const desktopMenuRef = ref<HTMLElement | null>(null)
+const devActionPending = ref(false)
 let es: EventSource | null = null
 
-const inputDisabled = computed(() => sending.value || ticketStatus.value === 'running' || ticketStatus.value === 'queued')
+const isRunning = computed(() =>
+  ticketStatus.value === 'running' || ticketStatus.value === 'queued'
+)
+
+const inputDisabled = computed(() => sending.value || isRunning.value)
 
 const devUrl = computed(() => ticket.value?.dev_url ?? null)
 
 const grouped = computed<GroupedMsg[]>(() => {
   const out: GroupedMsg[] = []
   const msgs = messages.value
-  // Index tool_results by tool_result_for_id for matching
   const resultsByUseId = new Map<string, DisplayMsg>()
   const matchedResults = new Set<number>()
   for (let i = 0; i < msgs.length; i++) {
@@ -244,7 +389,6 @@ const grouped = computed<GroupedMsg[]>(() => {
       matchedResults.add(i)
     }
   }
-  // Find the last TodoWrite tool_use index so we can skip earlier ones
   let lastTodoIdx = -1
   for (let i = msgs.length - 1; i >= 0; i--) {
     if (msgs[i].message_type === 'tool_use' && msgs[i].tool_name === 'TodoWrite') {
@@ -254,7 +398,6 @@ const grouped = computed<GroupedMsg[]>(() => {
   }
   for (let i = 0; i < msgs.length; i++) {
     if (msgs[i].message_type === 'tool_use') {
-      // Skip non-last TodoWrite calls and their results
       if (msgs[i].tool_name === 'TodoWrite' && i !== lastTodoIdx) {
         if (msgs[i].tool_use_id) matchedResults.add(
           msgs.findIndex(m => m.tool_result_for_id === msgs[i].tool_use_id)
@@ -262,7 +405,6 @@ const grouped = computed<GroupedMsg[]>(() => {
         continue
       }
       const result = msgs[i].tool_use_id ? resultsByUseId.get(msgs[i].tool_use_id!) : undefined
-      // Group consecutive Read calls into a single collapsible row
       if (msgs[i].tool_name === 'Read') {
         const last = out[out.length - 1]
         if (last?.kind === 'read_group') {
@@ -307,7 +449,7 @@ function toolTitle(name: string, content: string): string {
     if (json.description) return `${name}: ${json.description}`
     if (json.command) return `${name}: ${json.command}`
     if (json.pattern) return `${name}: ${json.pattern}`
-  } catch { /* not JSON, ignore */ }
+  } catch { /* not JSON */ }
   return name
 }
 
@@ -387,6 +529,26 @@ async function sendReply() {
   }
 }
 
+async function restartDevServer() {
+  if (devActionPending.value || !ticket.value) return
+  devActionPending.value = true
+  try {
+    await api.restartDevServer(props.id)
+  } catch { /* ignore */ } finally {
+    devActionPending.value = false
+  }
+}
+
+async function stopDevServer() {
+  if (devActionPending.value || !ticket.value) return
+  devActionPending.value = true
+  try {
+    await api.stopDevServer(props.id)
+  } catch { /* ignore */ } finally {
+    devActionPending.value = false
+  }
+}
+
 function handleEvent(event: StreamEvent) {
   if (event.type === 'NewMessage') {
     const idx = messages.value.length
@@ -417,11 +579,8 @@ function handleEvent(event: StreamEvent) {
 function openStream(id: string) {
   es?.close()
 
-  es = api.streamEvents(id, handleEvent, () => {
-    // EventSource will auto-reconnect; on reconnect, server replays all messages
-  })
+  es = api.streamEvents(id, handleEvent, () => {})
 
-  // On reconnect, clear messages so replay rebuilds them without duplicates
   es.onopen = () => {
     messages.value = []
     expanded.value = new Set()
@@ -460,3 +619,31 @@ onUnmounted(() => {
   scrollEl.value?.removeEventListener('scroll', onScroll)
 })
 </script>
+
+<style scoped>
+@keyframes progress-bar {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.animate-progress-bar {
+  animation: progress-bar 1.5s linear infinite;
+  width: 60%;
+}
+
+.sheet-enter-active,
+.sheet-leave-active {
+  transition: opacity 0.2s ease;
+}
+.sheet-enter-active .relative,
+.sheet-leave-active .relative {
+  transition: transform 0.25s ease;
+}
+.sheet-enter-from,
+.sheet-leave-to {
+  opacity: 0;
+}
+.sheet-enter-from .relative,
+.sheet-leave-to .relative {
+  transform: translateY(100%);
+}
+</style>
