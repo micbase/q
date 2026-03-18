@@ -5,9 +5,16 @@
     <div class="hidden md:block shrink-0">
       <div class="px-5 pt-4 pb-3 border-b border-gray-100">
         <div class="flex items-center gap-3">
-          <!-- Left: title + running badge -->
+          <!-- Left: status chip + title + meta + running badge -->
           <div class="flex items-center gap-2 flex-1 min-w-0">
-            <h1 class="font-semibold text-lg truncate">{{ ticket?.title }}</h1>
+            <StatusChip v-if="ticket" :status="ticketStatus" class="shrink-0" />
+            <h1 class="font-semibold text-base truncate">{{ ticket?.title }}</h1>
+            <template v-if="ticket">
+              <span class="text-gray-300 shrink-0">·</span>
+              <PriorityPips :priority="ticket.priority" class="shrink-0" />
+              <span class="text-gray-300 shrink-0">·</span>
+              <span class="text-sm text-gray-400 shrink-0">{{ relativeTime(ticket.created_at) }}</span>
+            </template>
             <!-- Pulsing dots when running -->
             <span v-if="isRunning" class="flex items-center gap-0.5 shrink-0" title="Claude Code is running">
               <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce" style="animation-delay:0ms"></span>
@@ -57,15 +64,6 @@
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- Subtitle row -->
-        <div v-if="ticket" class="text-sm text-gray-400 flex items-center gap-2 mt-0.5">
-          <span>{{ project?.name ?? '' }}</span>
-          <span>·</span>
-          <PriorityPips :priority="ticket.priority" />
-          <span>·</span>
-          <span>{{ relativeTime(ticket.created_at) }}</span>
         </div>
       </div>
 
@@ -318,8 +316,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { api } from '../api'
-import type { Ticket, Project, StreamEvent, MessageType } from '../../../shared/types'
+import type { Ticket, StreamEvent, MessageType } from '../../../shared/types'
 import { bus } from '../bus'
+import StatusChip from '../components/StatusChip.vue'
 import PriorityPips from '../components/PriorityPips.vue'
 import EditDiff from '../components/EditDiff.vue'
 
@@ -354,7 +353,6 @@ interface GroupedMsg {
 const props = defineProps<{ id: string }>()
 
 const ticket = ref<Ticket | null>(null)
-const project = ref<Project | null>(null)
 const messages = ref<DisplayMsg[]>([])
 const ticketStatus = ref<Ticket['status']>('queued')
 const error = ref('')
@@ -590,7 +588,6 @@ function openStream(id: string) {
 async function load(id: string) {
   es?.close()
   ticket.value = null
-  project.value = null
   messages.value = []
   ticketStatus.value = 'queued'
   error.value = ''
@@ -599,7 +596,6 @@ async function load(id: string) {
     ticket.value = await api.getTicket(id)
     if (ticket.value) {
       ticketStatus.value = ticket.value.status
-      project.value = await api.getProject(ticket.value.project_id).catch(() => null)
     }
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load ticket'
