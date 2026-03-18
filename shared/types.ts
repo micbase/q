@@ -27,13 +27,9 @@ export interface ClaudeEvent extends ToolFields {
 
 // SSE events sent to frontend — two distinct kinds routed to different channels
 
-// Per-ticket channel: message content events
-export interface MessageStreamEvent extends ToolFields {
-  type: 'NewMessage'
+// Per-ticket channel: a ClaudeEvent annotated with its ticket
+export interface MessageStreamEvent extends ClaudeEvent {
   ticket_id: string
-  message_type: MessageType
-  content: string
-  role?: 'user' | 'assistant' | 'system'
 }
 
 // Global channel: lightweight status-change events
