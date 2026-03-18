@@ -34,19 +34,6 @@
       >+ New Ticket</RouterLink>
     </header>
 
-    <!-- Mobile header (< md) — minimal, just the logo + status -->
-    <header class="md:hidden bg-white border-b border-gray-200 px-4 py-2.5 flex items-center gap-2 shrink-0">
-      <span class="font-bold text-lg tracking-tight flex-1">Q</span>
-      <span
-        v-if="status?.running_ticket_ids?.length"
-        class="text-yellow-500 animate-pulse text-sm"
-        title="Processing"
-      >⚡</span>
-      <span v-if="status && status.paused_count > 0" class="text-xs text-orange-500 font-medium">
-        {{ status.paused_count }} paused
-      </span>
-    </header>
-
     <!-- Dry run banner -->
     <div
       v-if="status?.dry_run"
@@ -71,8 +58,8 @@
     <!-- Mobile bottom nav -->
     <nav class="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-30 flex items-stretch h-16">
       <!-- Tickets -->
-      <RouterLink
-        to="/"
+      <button
+        @click="mobileDrawerOpen = true"
         class="flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors"
         :class="isTicketsActive ? 'text-blue-600' : 'text-gray-500'"
       >
@@ -80,7 +67,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
         </svg>
         Tickets
-      </RouterLink>
+      </button>
 
       <!-- Containers -->
       <RouterLink
@@ -171,7 +158,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from './api'
 import type { Status } from '../../shared/types'
@@ -184,10 +171,6 @@ const mobileDrawerOpen = ref(false)
 const mobileMoreOpen = ref(false)
 let unsubBus: (() => void) | undefined
 let unsubDrawer: (() => void) | undefined
-
-const isTicketsActive = computed(() =>
-  route.path === '/' || route.path.startsWith('/tickets')
-)
 
 async function loadStatus() {
   try {
