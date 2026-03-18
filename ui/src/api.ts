@@ -100,7 +100,7 @@ export const api = {
   getLogs: (id: string): Promise<{ lines: string[] }> =>
     request(`/tickets/${id}/logs`),
 
-  streamEvents: (id: string, onEvent: (e: MessageStreamEvent) => void, onError?: () => void): EventSource => {
+  streamMessageEvents: (id: string, onEvent: (e: MessageStreamEvent) => void, onError?: () => void): EventSource => {
     const es = new EventSource(`${BASE}/tickets/${id}/stream`)
     es.onmessage = e => {
       try {
@@ -113,7 +113,7 @@ export const api = {
     return es
   },
 
-  streamAllEvents: (onEvent: (e: StatusStreamEvent) => void, onOpen?: () => void): EventSource => {
+  streamStatusEvents: (onEvent: (e: StatusStreamEvent) => void, onOpen?: () => void): EventSource => {
     const es = new EventSource(`${BASE}/events`)
     es.onmessage = e => {
       try {

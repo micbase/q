@@ -632,7 +632,7 @@ function handleEvent(event: MessageStreamEvent) {
 function openStream(id: string) {
   es?.close()
 
-  es = api.streamEvents(id, handleEvent, () => {})
+  es = api.streamMessageEvents(id, handleEvent, () => {})
 
   es.onopen = () => {
     messages.value = []

@@ -188,7 +188,7 @@ function handleGlobalEvent(event: StatusStreamEvent) {
 onMounted(() => {
   load()
   unsubBus = bus.onRefresh(load)
-  globalEs = api.streamAllEvents(handleGlobalEvent, load)
+  globalEs = api.streamStatusEvents(handleGlobalEvent, load)
 })
 
 onUnmounted(() => {
