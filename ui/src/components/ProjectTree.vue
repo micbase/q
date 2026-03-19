@@ -44,7 +44,7 @@
           >
             <!-- Status dot -->
             <span class="shrink-0 relative flex w-2 h-2">
-              <span v-if="ticket.status === 'running' || ticket.status === 'queued'" class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" :class="dotClass(ticket.status)"></span>
+              <span v-if="ticket.status === 'running'" class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" :class="dotClass(ticket.status)"></span>
               <span class="relative inline-flex rounded-full w-2 h-2" :class="dotClass(ticket.status)"></span>
             </span>
             <!-- Title -->
