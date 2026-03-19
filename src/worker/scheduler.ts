@@ -6,7 +6,6 @@ import { callClaude } from './claude-client'
 import { runDrySession, buildInitialPrompt } from './session'
 import { ensureWorktree } from './github'
 import * as provisioner from './provisioner'
-import { pullImage } from './docker'
 import { startDevServer } from './dev-server'
 import * as notify from './notify'
 import { emitMessage, emitTicketStatusChange } from '../broker/emit'
@@ -58,17 +57,9 @@ class Scheduler {
   }
 
   private async tick(): Promise<void> {
-    let imagePulled = false
-
     while (runningTickets.size < config.maxConcurrentTickets) {
       const ticket = await db.nextQueuedTicket()
       if (!ticket) break
-
-      if (!config.dryRun && !imagePulled) {
-        imagePulled = true
-        await pullImage(config.projectImage).catch(err =>
-          console.warn('[scheduler] Failed to pull image:', err))
-      }
 
       console.log(`[scheduler] Picked ticket ${ticket.id} "${ticket.title}" (P${ticket.priority}) [${runningTickets.size + 1}/${config.maxConcurrentTickets}]`)
       runningTickets.add(ticket.id)
