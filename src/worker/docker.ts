@@ -11,6 +11,20 @@ export function getDocker(): Docker {
 
 // ─── Exec helpers ────────────────────────────────────────────────────────────
 
+/** Pull a Docker image, waiting for the pull to complete. */
+export async function pullImage(image: string): Promise<void> {
+  console.log(`[docker] Pulling image ${image}`)
+  const docker = getDocker()
+  const stream = await docker.pull(image)
+  await new Promise<void>((resolve, reject) => {
+    docker.modem.followProgress(stream, (err: Error | null) => {
+      if (err) reject(err)
+      else resolve()
+    })
+  })
+  console.log(`[docker] Image pulled: ${image}`)
+}
+
 export interface ExecOptions {
   WorkingDir?: string
   Env?: string[]
