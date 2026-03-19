@@ -43,7 +43,10 @@
               : 'border-l-transparent'"
           >
             <!-- Status dot -->
-            <span class="shrink-0 w-2 h-2 rounded-full" :class="dotClass(ticket.status)"></span>
+            <span class="shrink-0 relative flex w-2 h-2">
+              <span v-if="ticket.status === 'running'" class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" :class="dotClass(ticket.status)"></span>
+              <span class="relative inline-flex rounded-full w-2 h-2" :class="dotClass(ticket.status)"></span>
+            </span>
             <!-- Title -->
             <span class="truncate flex-1 text-sm" :class="titleClass(ticket.status, isActive(ticket.id))">{{ ticket.title }}</span>
           </RouterLink>
