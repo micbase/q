@@ -3,6 +3,7 @@ import { broker } from '../broker/broker'
 import { config } from '../config'
 import * as db from '../db/queries'
 import type { DevServerStatus } from '../../shared/types'
+import { appendLog } from '../logs/log-buffer'
 
 function parseEnvs(devEnvs?: string): string[] {
   if (!devEnvs) return []
@@ -53,8 +54,16 @@ export async function startDevServer(
   pids.set(ticketId, pid)
   await setStatus(ticketId, 'running')
 
-  stderr.on('data', (chunk: Buffer) => console.error(`${t} ${chunk.toString().trimEnd()}`))
-  stdout.on('data', (chunk: Buffer) => console.log(`${t} ${chunk.toString().trimEnd()}`))
+  stderr.on('data', (chunk: Buffer) => {
+    const line = chunk.toString().trimEnd()
+    console.error(`${t} ${line}`)
+    for (const l of line.split('\n')) appendLog(ticketId, l)
+  })
+  stdout.on('data', (chunk: Buffer) => {
+    const line = chunk.toString().trimEnd()
+    console.log(`${t} ${line}`)
+    for (const l of line.split('\n')) appendLog(ticketId, l)
+  })
 
   // Only update status on exit if this pid is still the current one (guards against
   // a stale closure firing after a new server has already started for the same ticket)
