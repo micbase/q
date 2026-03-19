@@ -42,7 +42,7 @@
               >···</button>
               <div
                 v-if="desktopMenuOpen"
-                class="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
+                class="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
               >
                 <button
                   @click="openLogs(); desktopMenuOpen = false"
@@ -54,6 +54,10 @@
                   :disabled="devActionPending"
                   class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-40"
                 >Stop server</button>
+                <button
+                  @click="archiveConfirmOpen = true; desktopMenuOpen = false"
+                  class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                >Archive ticket</button>
               </div>
             </div>
           </div>
@@ -283,6 +287,10 @@
               :disabled="devActionPending"
               class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-red-600 hover:bg-red-50 disabled:opacity-40"
             >Stop server</button>
+            <button
+              @click="archiveConfirmOpen = true; mobileSheetOpen = false"
+              class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-red-600 hover:bg-red-50"
+            >Archive ticket</button>
           </div>
           <!-- bottom safe area spacer -->
           <div class="h-4"></div>
@@ -331,11 +339,35 @@
         </div>
       </div>
     </Transition>
+
+    <!-- Archive confirmation modal -->
+    <Transition name="fade-modal">
+      <div v-if="archiveConfirmOpen" class="fixed inset-0 z-60 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40" @click="archiveConfirmOpen = false"></div>
+        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+          <h2 class="text-base font-semibold text-gray-900 mb-1">Archive ticket?</h2>
+          <p class="text-sm text-gray-500 mb-5">This ticket will be removed from the queue and can no longer be resumed.</p>
+          <div class="flex gap-3 justify-end">
+            <button
+              @click="archiveConfirmOpen = false"
+              :disabled="archiving"
+              class="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+            >Cancel</button>
+            <button
+              @click="archiveTicket"
+              :disabled="archiving"
+              class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
+            >{{ archiving ? 'Archiving…' : 'Archive' }}</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, watchEffect } from 'vue'
+import { useRouter } from 'vue-router'
 import { api } from '../api'
 import type { Ticket, MessageStreamEvent, MessageType } from '../../../shared/types'
 import { bus } from '../bus'
@@ -374,6 +406,7 @@ interface GroupedMsg {
 }
 
 const props = defineProps<{ id: string }>()
+const router = useRouter()
 
 const ticket = ref<Ticket | null>(null)
 const messages = ref<DisplayMsg[]>([])
@@ -394,6 +427,8 @@ const logLines = ref<string[]>([])
 const copyLabel = ref('Copy')
 const logsScrollEl = ref<HTMLElement | null>(null)
 let logsPollHandle: ReturnType<typeof setInterval> | null = null
+const archiveConfirmOpen = ref(false)
+const archiving = ref(false)
 let es: EventSource | null = null
 let unsubStatus: (() => void) | undefined
 
@@ -609,6 +644,20 @@ async function stopDevServer() {
   }
 }
 
+async function archiveTicket() {
+  if (archiving.value) return
+  archiving.value = true
+  try {
+    await api.deleteTicket(props.id)
+    bus.refresh()
+    await router.push('/')
+    bus.openDrawer()
+  } catch { /* ignore */ } finally {
+    archiving.value = false
+    archiveConfirmOpen.value = false
+  }
+}
+
 function handleEvent(event: MessageStreamEvent) {
   const idx = messages.value.length
   messages.value.push({
@@ -758,6 +807,15 @@ onUnmounted(() => {
 .markdown-body :deep(th),
 .markdown-body :deep(td) { border: 1px solid #d1d5db; padding: 0.3em 0.6em; text-align: left; }
 .markdown-body :deep(th) { background: rgba(0,0,0,0.05); font-weight: 600; }
+
+.fade-modal-enter-active,
+.fade-modal-leave-active {
+  transition: opacity 0.15s ease;
+}
+.fade-modal-enter-from,
+.fade-modal-leave-to {
+  opacity: 0;
+}
 
 .sheet-enter-active,
 .sheet-leave-active {
