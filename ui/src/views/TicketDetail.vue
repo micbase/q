@@ -311,7 +311,7 @@
         <!-- Backdrop -->
         <div class="absolute inset-0 bg-black/50" @click="closeLogs"></div>
         <!-- Panel -->
-        <div class="relative bg-gray-950 text-gray-100 w-full md:w-3xl md:max-w-3xl md:rounded-xl md:max-h-[80vh] flex flex-col shadow-2xl max-h-[85vh]">
+        <div class="relative bg-gray-950 text-gray-100 w-full md:w-5xl md:max-w-5xl md:rounded-xl md:max-h-[80vh] flex flex-col shadow-2xl max-h-[85vh]">
           <!-- Header -->
           <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
             <div class="flex items-center gap-2">
