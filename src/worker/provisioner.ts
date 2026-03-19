@@ -1,7 +1,7 @@
 import { config } from '../config'
 import * as db from '../db/queries'
 import type { Project, ContainerStatus } from '../../shared/types'
-import { getDocker, execInContainer, pullImage } from './docker'
+import { getDocker, execInContainer } from './docker'
 import { broker } from '../broker/broker'
 import { getInstallationToken, cloneRepoIfNeeded, setupGitCredentials, setupGitIdentity, pushWorktree, removeWorktree } from './github'
 import { clearDevServer } from './dev-server'
@@ -76,8 +76,6 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
   await setContainerStatus(ticketId, 'starting')
 
   const log = (line: string) => appendLog(ticketId, line)
-
-  await pullImage(config.projectImage)
 
   const { HostConfig: extraHostConfig, ...extraOpts } = config.dockerRunOptions
   const container = await getDocker().createContainer({
