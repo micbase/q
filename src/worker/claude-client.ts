@@ -122,7 +122,7 @@ export async function* callClaude(
           log?.(msg)
         }
 
-        yield* mapCLIEvent(event)
+        yield* mapCLIEvent(event, log)
       }
     }
 
@@ -140,7 +140,7 @@ export async function* callClaude(
     if (buffer.trim()) {
       try {
         const event: CLIEvent = JSON.parse(buffer.trim())
-        yield* mapCLIEvent(event)
+        yield* mapCLIEvent(event, log)
       } catch {
         const msg = `unparseable trailing buffer: ${buffer.trim().slice(0, 200)}`
         console.log(`${t} ${msg}`)
@@ -168,7 +168,7 @@ export async function* callClaude(
 
 // ─── Event mapping ────────────────────────────────────────────────────────────
 
-function* mapCLIEvent(event: CLIEvent): Generator<ClaudeEvent> {
+function* mapCLIEvent(event: CLIEvent, log?: (line: string) => void): Generator<ClaudeEvent> {
   if (event.type === 'assistant' || event.type === 'user') {
     const e = event as CLIMessageEvent
     const role = event.type as 'assistant' | 'user'
@@ -220,6 +220,8 @@ function* mapCLIEvent(event: CLIEvent): Generator<ClaudeEvent> {
       yield { type: 'error', role: 'assistant', content: `Session ended: ${e.subtype}`, claude_session_id: e.session_id }
     }
   } else if (event.type !== 'system') {
-    console.log(`[claude] unhandled event type: ${event.type} ${JSON.stringify(event).slice(0, 300)}`)
+    const msg = `unhandled event type: ${event.type} ${JSON.stringify(event).slice(0, 300)}`
+    console.log(`[claude] ${msg}`)
+    log?.(msg)
   }
 }

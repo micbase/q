@@ -5,6 +5,8 @@ import { getDocker, execInContainer } from './docker'
 import { broker } from '../broker/broker'
 import { getInstallationToken, cloneRepoIfNeeded, setupGitCredentials, setupGitIdentity, pushWorktree, removeWorktree } from './github'
 import { clearDevServer } from './dev-server'
+import { appendLog } from '../logs/log-buffer'
+
 const LABEL_MANAGED = 'q.managed'
 
 const TOKEN_MAX_AGE_MS = 55 * 60 * 1000 // refresh credentials before 1h expiry
@@ -21,12 +23,13 @@ async function setContainerStatus(ticketId: string, status: ContainerStatus): Pr
   broker.publishStatus({ type: 'ContainerStatusChange', ticket_id: ticketId, container_status: status })
 }
 
-async function refreshCredentials(entry: ContainerEntry, project: Project): Promise<void> {
+async function refreshCredentials(entry: ContainerEntry, project: Project, ticketId?: string): Promise<void> {
   if (!project.github_repo || !config.githubAppId) return
   const age = Date.now() - (entry.credentialsAt ?? 0)
   if (age < TOKEN_MAX_AGE_MS) return
   const token = await getInstallationToken(project.github_repo)
-  await setupGitCredentials(entry.id, token, entry.logTag)
+  const log = ticketId ? (line: string) => appendLog(ticketId, line) : undefined
+  await setupGitCredentials(entry.id, token, entry.logTag, log)
   entry.credentialsAt = Date.now()
 }
 
@@ -65,12 +68,14 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
   const existing = containers.get(ticketId)
   if (existing) {
     cancelIdleTimer(ticketId)
-    await refreshCredentials(existing, project)
+    await refreshCredentials(existing, project, ticketId)
     return existing.id
   }
 
   console.log(`[provisioner] Starting container for ticket ${ticketId} (project ${project.name})`)
   await setContainerStatus(ticketId, 'starting')
+
+  const log = (line: string) => appendLog(ticketId, line)
 
   const { HostConfig: extraHostConfig, ...extraOpts } = config.dockerRunOptions
   const container = await getDocker().createContainer({
@@ -97,13 +102,13 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
   // Bind-mounted dirs are owned by host UID — chown mount points (not recursive) so container user can write
   await execInContainer(id, ['chown', `${user}:${user}`, '/workspace', `/home/${user}/.claude`], logTag, { User: 'root' })
 
-  await setupGitIdentity(id, logTag)
+  await setupGitIdentity(id, logTag, log)
   await execInContainer(id, ['git', 'config', '--global', '--add', 'safe.directory', '*'], logTag)
 
   const entry: ContainerEntry = { id, logTag }
-  await refreshCredentials(entry, project)
+  await refreshCredentials(entry, project, ticketId)
   if (project.github_repo) {
-    await cloneRepoIfNeeded(id, project.github_repo, logTag)
+    await cloneRepoIfNeeded(id, project.github_repo, logTag, log)
   }
 
   containers.set(ticketId, entry)
@@ -148,10 +153,11 @@ export async function stopContainer(ticketId: string): Promise<void> {
   await clearDevServer(ticketId)
 
   console.log(`[provisioner] Stopping container for ticket ${ticketId}`)
+  const log = (line: string) => appendLog(ticketId, line)
   try {
-    await pushWorktree(id, ticketId, entry.logTag).catch(err =>
+    await pushWorktree(id, ticketId, entry.logTag, log).catch(err =>
       console.warn(`[provisioner] Failed to push worktree for ${ticketId}:`, err))
-    await removeWorktree(id, ticketId, entry.logTag).catch(err =>
+    await removeWorktree(id, ticketId, entry.logTag, log).catch(err =>
       console.warn(`[provisioner] Failed to remove worktree for ${ticketId}:`, err))
     const container = getDocker().getContainer(id)
     await container.stop({ t: 5 })
