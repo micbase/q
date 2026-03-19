@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import * as db from '../db/queries'
 import * as provisioner from '../worker/provisioner'
 import { startDevServer, stopDevServer } from '../worker/dev-server'
-import { worktreePath } from '../worker/github'
+import { worktreePath, ensureWorktree } from '../worker/github'
 import { config } from '../config'
 
 interface TicketParams {
@@ -70,7 +70,7 @@ export async function containerRoutes(app: FastifyInstance) {
     const containerId = provisioner.getContainerId(ticket.id)
     if (!containerId) return reply.status(409).send({ error: 'Container is not running' })
     const logTag = provisioner.getContainerTag(ticket.id)
-    const workDir = project.github_repo ? worktreePath(ticket.id) : '/workspace'
+    const workDir = project.github_repo ? await ensureWorktree(containerId, ticket.id, logTag) : '/workspace'
     await startDevServer(containerId, ticket.id, project.dev_command, workDir, logTag, project.dev_envs)
     return reply.status(204).send()
   })
@@ -98,7 +98,7 @@ export async function containerRoutes(app: FastifyInstance) {
     const containerId = provisioner.getContainerId(ticket.id)
     if (!containerId) return reply.status(409).send({ error: 'Container is not running' })
     const logTag = provisioner.getContainerTag(ticket.id)
-    const workDir = project.github_repo ? worktreePath(ticket.id) : '/workspace'
+    const workDir = project.github_repo ? await ensureWorktree(containerId, ticket.id, logTag) : '/workspace'
     await stopDevServer(ticket.id, containerId, logTag)
     await startDevServer(containerId, ticket.id, project.dev_command, workDir, logTag, project.dev_envs)
     return reply.status(204).send()
