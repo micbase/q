@@ -109,7 +109,7 @@ class Scheduler {
         let workDir: string | undefined
         if (project.github_repo) {
           try {
-            workDir = await ensureWorktree(containerId, ticket.id, logTag)
+            workDir = await ensureWorktree(containerId, ticket.id, logTag, (line) => appendLog(ticket.id, line))
             ticketLog(ticket.id, `worktree: ${workDir}`)
           } catch (err) {
             console.error(`[scheduler] Failed to create worktree for ${ticket.id}:`, err)
