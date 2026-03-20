@@ -50,11 +50,11 @@
     </div>
 
     <!-- Mobile bottom nav -->
-    <nav class="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-30 flex items-stretch" style="height: calc(4rem + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);">
+    <nav class="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-30 flex items-end" style="padding-bottom: env(safe-area-inset-bottom);">
       <!-- Tickets -->
       <button
         @click="mobileDrawerOpen = true"
-        class="flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors"
+        class="flex-1 h-16 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors"
         :class="isTicketsActive ? 'text-blue-600' : 'text-gray-500'"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
@@ -66,7 +66,7 @@
       <!-- Containers -->
       <RouterLink
         to="/containers"
-        class="flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors"
+        class="flex-1 h-16 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors"
         :class="route.path === '/containers' ? 'text-blue-600' : 'text-gray-500'"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
@@ -76,7 +76,7 @@
       </RouterLink>
 
       <!-- FAB: New Ticket -->
-      <div class="flex items-center justify-center px-2">
+      <div class="h-16 flex items-center justify-center px-2">
         <RouterLink
           to="/new"
           class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-colors text-white text-2xl leading-none font-light"
@@ -87,7 +87,7 @@
       <!-- Projects -->
       <RouterLink
         to="/projects"
-        class="flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors"
+        class="flex-1 h-16 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors"
         :class="route.path === '/projects' ? 'text-blue-600' : 'text-gray-500'"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
@@ -99,7 +99,7 @@
       <!-- More -->
       <button
         @click="mobileMoreOpen = !mobileMoreOpen"
-        class="flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors text-gray-500"
+        class="flex-1 h-16 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors text-gray-500"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
           <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/>
