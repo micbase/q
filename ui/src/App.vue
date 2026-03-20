@@ -50,64 +50,69 @@
     </div>
 
     <!-- Mobile bottom nav -->
-    <nav class="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-30 flex items-end" style="padding-bottom: env(safe-area-inset-bottom);">
-      <!-- Tickets -->
-      <button
-        @click="mobileDrawerOpen = true"
-        class="flex-1 h-16 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors"
-        :class="isTicketsActive ? 'text-blue-600' : 'text-gray-500'"
-      >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-        </svg>
-        Tickets
-      </button>
+    <nav class="md:hidden fixed bottom-0 inset-x-0 bg-white z-30 flex flex-col">
+      <!-- Button row — same 4rem height as before, buttons sit at the same position -->
+      <div class="flex h-16 items-stretch border-t border-gray-200">
+        <!-- Tickets -->
+        <button
+          @click="mobileDrawerOpen = true"
+          class="flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors"
+          :class="isTicketsActive ? 'text-blue-600' : 'text-gray-500'"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          </svg>
+          Tickets
+        </button>
 
-      <!-- Containers -->
-      <RouterLink
-        to="/containers"
-        class="flex-1 h-16 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors"
-        :class="route.path === '/containers' ? 'text-blue-600' : 'text-gray-500'"
-      >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/>
-        </svg>
-        Containers
-      </RouterLink>
-
-      <!-- FAB: New Ticket -->
-      <div class="h-16 flex items-center justify-center px-2">
+        <!-- Containers -->
         <RouterLink
-          to="/new"
-          class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-colors text-white text-2xl leading-none font-light"
-          aria-label="New ticket"
-        >+</RouterLink>
+          to="/containers"
+          class="flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors"
+          :class="route.path === '/containers' ? 'text-blue-600' : 'text-gray-500'"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/>
+          </svg>
+          Containers
+        </RouterLink>
+
+        <!-- FAB: New Ticket -->
+        <div class="flex items-center justify-center px-2">
+          <RouterLink
+            to="/new"
+            class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-700 transition-colors text-white text-2xl leading-none font-light"
+            aria-label="New ticket"
+          >+</RouterLink>
+        </div>
+
+        <!-- Projects -->
+        <RouterLink
+          to="/projects"
+          class="flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors"
+          :class="route.path === '/projects' ? 'text-blue-600' : 'text-gray-500'"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+          </svg>
+          Projects
+        </RouterLink>
+
+        <!-- More -->
+        <button
+          @click="mobileMoreOpen = !mobileMoreOpen"
+          class="flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors text-gray-500"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+            <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+            <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+            <circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+          </svg>
+          More
+        </button>
       </div>
-
-      <!-- Projects -->
-      <RouterLink
-        to="/projects"
-        class="flex-1 h-16 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors"
-        :class="route.path === '/projects' ? 'text-blue-600' : 'text-gray-500'"
-      >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
-        </svg>
-        Projects
-      </RouterLink>
-
-      <!-- More -->
-      <button
-        @click="mobileMoreOpen = !mobileMoreOpen"
-        class="flex-1 h-16 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors text-gray-500"
-      >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
-          <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/>
-          <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>
-          <circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/>
-        </svg>
-        More
-      </button>
+      <!-- Safe area spacer: white fill so home indicator zone isn't transparent -->
+      <div class="shrink-0" style="height: env(safe-area-inset-bottom)"></div>
     </nav>
 
     <!-- Mobile "More" popup menu -->
