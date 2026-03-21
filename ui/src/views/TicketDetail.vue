@@ -265,13 +265,11 @@
         <div class="relative bg-white rounded-t-2xl pb-safe shadow-xl">
           <div class="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-2"></div>
           <div class="py-2">
-            <a
+            <button
               v-if="devUrl"
-              :href="devUrl"
-              target="_blank"
-              @click="mobileSheetOpen = false"
-              class="flex items-center gap-3 px-5 py-3.5 text-base text-blue-600 hover:bg-gray-50"
-            >Open dev server <span class="text-sm">↗</span></a>
+              @click="embeddedDevOpen = true; mobileSheetOpen = false"
+              class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-blue-600 hover:bg-gray-50"
+            >Open dev server</button>
             <button
               @click="restartDevServer(); mobileSheetOpen = false"
               :disabled="devActionPending"
@@ -332,13 +330,43 @@
             </div>
           </div>
           <!-- Log lines -->
-          <div ref="logsScrollEl" class="flex-1 overflow-y-auto px-4 py-3 font-mono text-xs leading-relaxed">
+          <div ref="logsScrollEl" class="flex-1 min-h-0 overflow-y-auto px-4 py-3 font-mono text-xs leading-relaxed">
             <div v-if="logLines.length === 0" class="text-gray-500 text-center py-8">No logs yet.</div>
             <div v-for="(line, i) in logLines" :key="i" class="whitespace-pre-wrap break-all text-gray-300">{{ line }}</div>
           </div>
         </div>
       </div>
     </Transition>
+
+    <!-- ===== MOBILE EMBEDDED DEV SERVER ===== -->
+    <div v-if="embeddedDevOpen" class="fixed inset-0 z-50 flex flex-col md:hidden">
+      <!-- Top bar -->
+      <div class="flex items-center gap-2 bg-gray-900 px-3 py-2 shrink-0">
+        <button
+          @click="embeddedDevOpen = false"
+          class="text-white flex items-center gap-1.5 text-sm font-medium px-2 py-1 rounded hover:bg-gray-700 transition-colors"
+          aria-label="Back"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+          </svg>
+          Back
+        </button>
+        <span class="text-gray-400 text-xs truncate flex-1">{{ devUrl }}</span>
+        <a
+          :href="devUrl!"
+          target="_blank"
+          class="text-gray-400 hover:text-white text-xs px-2 py-1 rounded hover:bg-gray-700 transition-colors shrink-0"
+          aria-label="Open in browser"
+        >↗</a>
+      </div>
+      <!-- iframe -->
+      <iframe
+        :src="devUrl!"
+        class="flex-1 w-full border-0 bg-white"
+        allow="cross-origin-isolated"
+      ></iframe>
+    </div>
 
     <!-- Archive confirmation modal -->
     <Transition name="fade-modal">
@@ -419,6 +447,7 @@ const scrollEl = ref<HTMLElement | null>(null)
 const expanded = ref<Set<number>>(new Set())
 const autoScroll = ref(true)
 const mobileSheetOpen = ref(false)
+const embeddedDevOpen = ref(false)
 const desktopMenuOpen = ref(false)
 const desktopMenuRef = ref<HTMLElement | null>(null)
 const devActionPending = ref(false)
