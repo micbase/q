@@ -19,12 +19,11 @@
 
           <!-- Right: dev link + restart + overflow -->
           <div class="flex items-center gap-2 shrink-0">
-            <a
+            <button
               v-if="devUrl"
-              :href="devUrl"
-              target="_blank"
+              @click="openDevPopup"
               class="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5"
-            >dev <span class="text-xs">↗</span></a>
+            >dev <span class="text-xs">↗</span></button>
 
             <button
               v-if="ticket"
@@ -267,9 +266,9 @@
           <div class="py-2">
             <button
               v-if="devUrl"
-              @click="embeddedDevOpen = true; mobileSheetOpen = false"
+              @click="openDevPopup(); mobileSheetOpen = false"
               class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-blue-600 hover:bg-gray-50"
-            >Open dev server</button>
+            >Open dev server <span class="text-sm">↗</span></button>
             <button
               @click="restartDevServer(); mobileSheetOpen = false"
               :disabled="devActionPending"
@@ -337,36 +336,6 @@
         </div>
       </div>
     </Transition>
-
-    <!-- ===== MOBILE EMBEDDED DEV SERVER ===== -->
-    <div v-if="embeddedDevOpen" class="fixed inset-0 z-50 flex flex-col md:hidden">
-      <!-- Top bar -->
-      <div class="flex items-center gap-2 bg-gray-900 px-3 py-2 shrink-0">
-        <button
-          @click="embeddedDevOpen = false"
-          class="text-white flex items-center gap-1.5 text-sm font-medium px-2 py-1 rounded hover:bg-gray-700 transition-colors"
-          aria-label="Back"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
-          </svg>
-          Back
-        </button>
-        <span class="text-gray-400 text-xs truncate flex-1">{{ devUrl }}</span>
-        <a
-          :href="devUrl!"
-          target="_blank"
-          class="text-gray-400 hover:text-white text-xs px-2 py-1 rounded hover:bg-gray-700 transition-colors shrink-0"
-          aria-label="Open in browser"
-        >↗</a>
-      </div>
-      <!-- iframe -->
-      <iframe
-        :src="devUrl!"
-        class="flex-1 w-full border-0 bg-white"
-        allow="cross-origin-isolated"
-      ></iframe>
-    </div>
 
     <!-- Archive confirmation modal -->
     <Transition name="fade-modal">
@@ -447,7 +416,6 @@ const scrollEl = ref<HTMLElement | null>(null)
 const expanded = ref<Set<number>>(new Set())
 const autoScroll = ref(true)
 const mobileSheetOpen = ref(false)
-const embeddedDevOpen = ref(false)
 const desktopMenuOpen = ref(false)
 const desktopMenuRef = ref<HTMLElement | null>(null)
 const devActionPending = ref(false)
@@ -651,6 +619,11 @@ async function sendReply() {
   } finally {
     sending.value = false
   }
+}
+
+function openDevPopup() {
+  if (!devUrl.value) return
+  window.open(devUrl.value, '_blank', 'noopener,noreferrer,popup,width=1280,height=900')
 }
 
 async function restartDevServer() {
