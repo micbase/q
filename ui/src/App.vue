@@ -50,9 +50,9 @@
     </div>
 
     <!-- Mobile bottom nav -->
-    <nav class="md:hidden fixed bottom-0 inset-x-0 bg-white z-30 flex flex-col">
+    <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 flex flex-col liquid-glass-nav">
       <!-- Button row — same 4rem height as before, buttons sit at the same position -->
-      <div class="flex h-16 items-stretch border-t border-gray-200">
+      <div class="flex h-16 items-stretch">
         <!-- Tickets -->
         <button
           @click="mobileDrawerOpen = true"
@@ -190,6 +190,17 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Liquid Glass bottom nav */
+.liquid-glass-nav {
+  background: rgba(250, 250, 252, 0.72);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 -0.5px 0 rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
 /* Reserve space for the mobile nav + iOS home indicator */
 .mobile-main-content {
   padding-bottom: calc(4rem + env(safe-area-inset-bottom));
