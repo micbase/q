@@ -360,5 +360,13 @@ function mapTicket(row: Ticket): Ticket {
     completed_at: row.completed_at ? Number(row.completed_at) : undefined,
     error: row.error ?? undefined,
     dev_url: row.dev_url ?? undefined,
+    pr_url: (row as any).pr_url ?? undefined,
   }
+}
+
+export async function setTicketPrUrl(id: string, prUrl: string, q: DB = defaultDB): Promise<void> {
+  await q.query(
+    'UPDATE tickets SET pr_url = $1, updated_at = $2 WHERE id = $3',
+    [prUrl, now(), id]
+  )
 }

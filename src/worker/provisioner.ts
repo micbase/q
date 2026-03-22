@@ -27,7 +27,8 @@ async function refreshCredentials(entry: ContainerEntry, project: Project, ticke
   if (!project.github_repo || !config.githubAppId) return
   const age = Date.now() - (entry.credentialsAt ?? 0)
   if (age < TOKEN_MAX_AGE_MS) return
-  const token = await getInstallationToken(project.github_repo)
+  // Scope to contents only — containers must not be able to create PRs
+  const token = await getInstallationToken(project.github_repo, { contents: 'write' })
   const log = ticketId ? (line: string) => appendLog(ticketId, line) : undefined
   await setupGitCredentials(entry.id, token, entry.logTag, log)
   entry.credentialsAt = Date.now()
