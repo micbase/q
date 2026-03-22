@@ -4,7 +4,7 @@ import { withTransaction } from '../db/connection'
 import type { ClaudeEvent } from '../../shared/types'
 import { callClaude } from './claude-client'
 import { runDrySession, buildInitialPrompt } from './session'
-import { ensureWorktree } from './github'
+import { ensureWorktree, maybeCreatePullRequest } from './github'
 import * as provisioner from './provisioner'
 import { startDevServer } from './dev-server'
 import * as notify from './notify'
@@ -93,6 +93,7 @@ class Scheduler {
 
     let containerId: string | undefined
     let logTag: string | undefined
+    let project: Awaited<ReturnType<typeof db.getProject>> | undefined
 
     try {
       let eventSource: AsyncGenerator<ClaudeEvent>
@@ -101,7 +102,7 @@ class Scheduler {
         ticketLog(ticket.id, 'dry run mode — skipping Docker + Claude')
         eventSource = runDrySession(ticket, isResume, log)
       } else {
-        const project = await db.getProject(ticket.project_id)
+        project = await db.getProject(ticket.project_id)
         if (!project) throw new Error(`Project ${ticket.project_id} not found`)
         containerId = await provisioner.ensureRunning(project, ticket.id)
         logTag = provisioner.getContainerTag(ticket.id)
@@ -130,8 +131,20 @@ class Scheduler {
 
       for await (const event of eventSource) {
         if (event.type === 'done') {
+          // Try to open a PR before emitting done status so the UI gets pr_url on re-fetch
+          let prUrl: string | null = null
+          if (!config.dryRun && project?.github_repo) {
+            try {
+              prUrl = await maybeCreatePullRequest(project.github_repo, ticket.id, event.content)
+              if (prUrl) ticketLog(ticket.id, `PR: ${prUrl}`)
+            } catch (err) {
+              console.warn(`[scheduler] Failed to create PR for ${ticket.id}:`, err)
+            }
+          }
+
           await withTransaction(async (tx) => {
-            await emitMessage(ticket.id, '', 'done', event.role, { claudeSessionId: event.claude_session_id }, tx)
+            if (prUrl) await db.setTicketPrUrl(ticket.id, prUrl!, tx)
+            await emitMessage(ticket.id, event.content, 'done', event.role, { claudeSessionId: event.claude_session_id }, tx)
             await emitTicketStatusChange(ticket.id, 'done', undefined, tx)
           })
           ticketLog(ticket.id, 'completed')

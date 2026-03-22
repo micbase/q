@@ -17,7 +17,7 @@
             </template>
           </div>
 
-          <!-- Right: dev link + status + restart + overflow -->
+          <!-- Right: PR link + dev link + status + restart + overflow -->
           <div class="flex items-center gap-2 shrink-0">
             <!-- Dev server status indicator -->
             <div v-if="ticket" class="flex items-center gap-1.5">
@@ -30,6 +30,13 @@
               ]"></span>
               <span class="text-xs text-gray-500">{{ devServerStatus }}</span>
             </div>
+
+            <a
+              v-if="ticket?.pr_url"
+              :href="ticket.pr_url"
+              target="_blank"
+              class="text-sm text-green-700 hover:text-green-900 font-medium flex items-center gap-0.5"
+            >PR <span class="text-xs">↗</span></a>
 
             <a
               v-if="devUrl"
@@ -299,6 +306,13 @@
         <div class="relative bg-white rounded-t-2xl pb-safe shadow-xl">
           <div class="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-2"></div>
           <div class="py-2">
+            <a
+              v-if="ticket?.pr_url"
+              :href="ticket.pr_url"
+              target="_blank"
+              @click="mobileSheetOpen = false"
+              class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-green-700 hover:bg-gray-50"
+            >Open PR <span class="text-sm">↗</span></a>
             <button
               v-if="devUrl"
               @click="openDevPopup(); mobileSheetOpen = false"
@@ -813,7 +827,12 @@ async function load(id: string) {
   }
 
   unsubStatus = bus.onTicketStatus((ticketId, status) => {
-    if (ticketId === id) ticketStatus.value = status
+    if (ticketId !== id) return
+    ticketStatus.value = status
+    // Re-fetch ticket on done so pr_url (set after status change) is reflected
+    if (status === 'done') {
+      api.getTicket(id).then(t => { ticket.value = t }).catch(() => {})
+    }
   })
 
   unsubDevServerStatus = bus.onDevServerStatus((ticketId, status) => {

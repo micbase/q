@@ -25,8 +25,13 @@ function createAppJWT(): string {
 
 // ─── Installation token ──────────────────────────────────────────────────────
 
-/** Get a short-lived installation access token for a repo (owner/repo format) */
-export async function getInstallationToken(repo: string): Promise<string> {
+/**
+ * Get a short-lived installation access token for a repo (owner/repo format).
+ * Pass `permissions` to downscope the token (e.g. `{ contents: 'write' }`).
+ * Tokens without a permissions override inherit all app permissions — always
+ * pass an explicit scope so container tokens cannot create PRs.
+ */
+export async function getInstallationToken(repo: string, permissions?: Record<string, string>): Promise<string> {
   const jwt = createAppJWT()
 
   // Look up installation ID for this repo
@@ -43,14 +48,16 @@ export async function getInstallationToken(repo: string): Promise<string> {
   }
   const { id: installationId } = await installRes.json() as { id: number }
 
-  // Create access token scoped to this installation
+  // Create access token scoped to this installation (and optionally to specific permissions)
   const tokenRes = await fetch(`https://api.github.com/app/installations/${installationId}/access_tokens`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${jwt}`,
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
+      'Content-Type': 'application/json',
     },
+    body: permissions ? JSON.stringify({ permissions }) : undefined,
   })
   if (!tokenRes.ok) {
     const body = await tokenRes.text()
@@ -213,6 +220,89 @@ export async function pushWorktree(containerId: string, ticketId: string, logTag
   ], logTag)
   console.log(`${t} Pushed worktree branch ${branch}`)
   log?.(`pushed ${branch}`)
+}
+
+// ─── Pull request creation ────────────────────────────────────────────────────
+
+/**
+ * Check if the ticket's branch has commits ahead of the repo default branch,
+ * and if so create a pull request via GitHub API (run by q, never inside a container).
+ *
+ * The token used here is scoped to `pull_requests: write` only — it is never
+ * passed to a container, so Claude cannot use it.
+ *
+ * Returns the PR html_url if a PR was created/found, null if there was nothing to do.
+ */
+export async function maybeCreatePullRequest(
+  repo: string,
+  ticketId: string,
+  body: string,
+): Promise<string | null> {
+  if (!config.githubAppId || !config.githubPrivateKey) return null
+
+  const branch = `q/${ticketId}`
+  // q creates PRs — scope to pull_requests only (never goes to container)
+  const token = await getInstallationToken(repo, { pull_requests: 'write', contents: 'read' })
+
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'Content-Type': 'application/json',
+  }
+
+  // Get default branch
+  const repoRes = await fetch(`https://api.github.com/repos/${repo}`, { headers })
+  if (!repoRes.ok) throw new Error(`Failed to get repo info: ${repoRes.status}`)
+  const { default_branch: defaultBranch } = await repoRes.json() as { default_branch: string }
+
+  // Compare branch against default — gives us ahead_by (guard) + commits (for title)
+  const compareRes = await fetch(
+    `https://api.github.com/repos/${repo}/compare/${defaultBranch}...${branch}`,
+    { headers },
+  )
+  if (!compareRes.ok) {
+    if (compareRes.status === 404) return null // branch doesn't exist on remote
+    throw new Error(`Failed to compare branches: ${compareRes.status}`)
+  }
+  const compare = await compareRes.json() as { ahead_by: number; commits: Array<{ commit: { message: string } }> }
+  if (compare.ahead_by === 0 || compare.commits.length === 0) return null
+
+  // PR title = first line of the first commit on this branch
+  const title = compare.commits[0].commit.message.split('\n')[0].trim()
+
+  // Try to create the PR; if one already exists GitHub returns 422
+  const prRes = await fetch(`https://api.github.com/repos/${repo}/pulls`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ title, body, head: branch, base: defaultBranch }),
+  })
+
+  if (prRes.status === 422) {
+    // PR already exists — find and return it
+    const [owner] = repo.split('/')
+    const existingRes = await fetch(
+      `https://api.github.com/repos/${repo}/pulls?head=${owner}:${branch}&state=open`,
+      { headers },
+    )
+    if (existingRes.ok) {
+      const existing = await existingRes.json() as Array<{ html_url: string }>
+      if (existing.length > 0) {
+        console.log(`[github] PR already exists for ${branch}: ${existing[0].html_url}`)
+        return existing[0].html_url
+      }
+    }
+    return null
+  }
+
+  if (!prRes.ok) {
+    const errBody = await prRes.text()
+    throw new Error(`Failed to create PR: ${prRes.status} ${errBody}`)
+  }
+
+  const pr = await prRes.json() as { html_url: string }
+  console.log(`[github] Created PR for ${branch}: ${pr.html_url}`)
+  return pr.html_url
 }
 
 // ─── PR merge detection ──────────────────────────────────────────────────────
