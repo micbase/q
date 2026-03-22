@@ -200,7 +200,7 @@ export async function updateTicketStatus(id: string, status: TicketStatus, q: DB
   let idx = 3
 
   if (status === 'running') { sets.push(`started_at = $${idx}`); vals.push(ts); idx++ }
-  if (status === 'done' || status === 'failed' || status === 'deleted') { sets.push(`completed_at = $${idx}`); vals.push(ts); idx++ }
+  if (status === 'done' || status === 'failed' || status === 'deleted' || status === 'archived') { sets.push(`completed_at = $${idx}`); vals.push(ts); idx++ }
 
   vals.push(id)
   await q.query(
@@ -223,6 +223,25 @@ export async function deleteTicket(id: string, q: DB = defaultDB): Promise<void>
     "UPDATE tickets SET status = 'deleted', updated_at = $1, completed_at = $2 WHERE id = $3",
     [ts, ts, id]
   )
+}
+
+export async function archiveTicket(id: string, q: DB = defaultDB): Promise<void> {
+  const ts = now()
+  await q.query(
+    "UPDATE tickets SET status = 'archived', updated_at = $1 WHERE id = $2",
+    [ts, id]
+  )
+}
+
+/** Returns done tickets belonging to projects that have a github_repo configured. */
+export async function listDoneTicketsWithRepo(q: DB = defaultDB): Promise<Array<{ ticket_id: string; github_repo: string }>> {
+  const { rows } = await q.query(
+    `SELECT t.id AS ticket_id, p.github_repo
+     FROM tickets t
+     JOIN projects p ON p.id = t.project_id
+     WHERE t.status = 'done' AND p.github_repo IS NOT NULL`
+  )
+  return rows.map(r => ({ ticket_id: r.ticket_id, github_repo: r.github_repo }))
 }
 
 export async function nextQueuedTicket(q: DB = defaultDB): Promise<Ticket | null> {

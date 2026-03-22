@@ -87,6 +87,17 @@ export async function ticketRoutes(app: FastifyInstance) {
     return reply.send({ lines: getLogs(req.params.id) })
   })
 
+  // POST /api/tickets/:id/archive — mark ticket as archived (PR merged)
+  app.post<{ Params: TicketParams }>('/tickets/:id/archive', async (req, reply) => {
+    await withTransaction(async (tx) => {
+      const ticket = await db.getTicket(req.params.id, tx)
+      if (!ticket) { reply.status(404).send({ error: 'Not found' }); return }
+      await db.archiveTicket(req.params.id, tx)
+      await emitTicketStatusChange(req.params.id, 'archived', undefined, tx)
+      reply.status(204).send()
+    })
+  })
+
   // DELETE /api/tickets/:id — soft delete (sets status to cancelled)
   app.delete<{ Params: TicketParams }>('/tickets/:id', async (req, reply) => {
     await withTransaction(async (tx) => {

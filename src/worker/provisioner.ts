@@ -4,6 +4,7 @@ import type { Project, ContainerStatus } from '../../shared/types'
 import { getDocker, execInContainer, pullImage } from './docker'
 import { broker } from '../broker/broker'
 import { getInstallationToken, cloneRepoIfNeeded, setupGitCredentials, setupGitIdentity, pushWorktree, removeWorktree } from './github'
+import { checkAndArchiveIfMerged } from './merge-watcher'
 import { clearDevServer } from './dev-server'
 import { appendLog } from '../logs/log-buffer'
 
@@ -169,6 +170,17 @@ export async function stopContainer(ticketId: string): Promise<void> {
     console.warn(`[provisioner] Error stopping container:`, err)
   }
   await setContainerStatus(ticketId, 'stopped')
+
+  // After the container stops, check if the PR was merged and archive if so
+  if (config.githubAppId) {
+    const ticket = await db.getTicket(ticketId)
+    if (ticket) {
+      const project = await db.getProject(ticket.project_id)
+      if (project?.github_repo && ticket.status === 'done') {
+        void checkAndArchiveIfMerged(ticketId, project.github_repo)
+      }
+    }
+  }
 }
 
 /** Stop all q-managed containers (found by label) and clear in-memory state */

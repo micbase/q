@@ -305,6 +305,38 @@ export async function maybeCreatePullRequest(
   return pr.html_url
 }
 
+// ─── PR merge detection ──────────────────────────────────────────────────────
+
+/**
+ * Returns true if a PR for the ticket's branch (q/{ticketId}) has been merged
+ * into the repo's default branch.  Returns false if no merged PR is found, or
+ * if GitHub App credentials are not configured.
+ */
+export async function checkPRMerged(repo: string, ticketId: string): Promise<boolean> {
+  let jwt: string
+  try {
+    jwt = createAppJWT()
+  } catch {
+    return false // GitHub App not configured
+  }
+
+  const branch = `q/${ticketId}`
+  const [owner] = repo.split('/')
+  const url = `https://api.github.com/repos/${repo}/pulls?state=closed&head=${owner}:${branch}&per_page=1`
+
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+  })
+  if (!res.ok) return false
+
+  const pulls = await res.json() as Array<{ merged_at: string | null }>
+  return pulls.length > 0 && pulls[0].merged_at !== null
+}
+
 /** Remove a ticket's worktree */
 export async function removeWorktree(containerId: string, ticketId: string, logTag: string, log?: (line: string) => void): Promise<void> {
   const wt = worktreePath(ticketId)

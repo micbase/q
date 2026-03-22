@@ -1,2 +1,2 @@
--- Migration: add pr_url to tickets (GitHub PR created by q after done)
-ALTER TABLE tickets ADD COLUMN pr_url TEXT;
+-- Migration: add 'archived' to ticket_status (ticket branch merged into main)
+ALTER TYPE ticket_status ADD VALUE 'archived';

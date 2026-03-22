@@ -81,9 +81,14 @@
                   class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40"
                 >Start server</button>
                 <button
+                  v-if="ticketStatus === 'done'"
                   @click="archiveConfirmOpen = true; desktopMenuOpen = false"
-                  class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                  class="w-full text-left px-4 py-2 text-sm text-purple-700 hover:bg-purple-50"
                 >Archive ticket</button>
+                <button
+                  @click="deleteConfirmOpen = true; desktopMenuOpen = false"
+                  class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                >Delete ticket</button>
               </div>
             </div>
           </div>
@@ -336,9 +341,14 @@
               class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-gray-800 hover:bg-gray-50 disabled:opacity-40"
             >Start server</button>
             <button
+              v-if="ticketStatus === 'done'"
               @click="archiveConfirmOpen = true; mobileSheetOpen = false"
-              class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-red-600 hover:bg-red-50"
+              class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-purple-700 hover:bg-purple-50"
             >Archive ticket</button>
+            <button
+              @click="deleteConfirmOpen = true; mobileSheetOpen = false"
+              class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-red-600 hover:bg-red-50"
+            >Delete ticket</button>
           </div>
           <!-- bottom safe area spacer -->
           <div class="h-4"></div>
@@ -394,7 +404,7 @@
         <div class="absolute inset-0 bg-black/40" @click="archiveConfirmOpen = false"></div>
         <div class="relative bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
           <h2 class="text-base font-semibold text-gray-900 mb-1">Archive ticket?</h2>
-          <p class="text-sm text-gray-500 mb-5">This ticket will be removed from the queue and can no longer be resumed.</p>
+          <p class="text-sm text-gray-500 mb-5">Mark this ticket as archived — the change has been merged and the ticket is complete.</p>
           <div class="flex gap-3 justify-end">
             <button
               @click="archiveConfirmOpen = false"
@@ -404,8 +414,31 @@
             <button
               @click="archiveTicket"
               :disabled="archiving"
-              class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
+              class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
             >{{ archiving ? 'Archiving…' : 'Archive' }}</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Delete confirmation modal -->
+    <Transition name="fade-modal">
+      <div v-if="deleteConfirmOpen" class="fixed inset-0 z-60 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/40" @click="deleteConfirmOpen = false"></div>
+        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+          <h2 class="text-base font-semibold text-gray-900 mb-1">Delete ticket?</h2>
+          <p class="text-sm text-gray-500 mb-5">This ticket will be soft-deleted and hidden from the queue.</p>
+          <div class="flex gap-3 justify-end">
+            <button
+              @click="deleteConfirmOpen = false"
+              :disabled="deleting"
+              class="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+            >Cancel</button>
+            <button
+              @click="deleteTicket"
+              :disabled="deleting"
+              class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
+            >{{ deleting ? 'Deleting…' : 'Delete' }}</button>
           </div>
         </div>
       </div>
@@ -477,6 +510,8 @@ const logsScrollEl = ref<HTMLElement | null>(null)
 let logsPollHandle: ReturnType<typeof setInterval> | null = null
 const archiveConfirmOpen = ref(false)
 const archiving = ref(false)
+const deleteConfirmOpen = ref(false)
+const deleting = ref(false)
 let es: EventSource | null = null
 let unsubStatus: (() => void) | undefined
 let unsubDevServerStatus: (() => void) | undefined
@@ -718,13 +753,24 @@ async function archiveTicket() {
   if (archiving.value) return
   archiving.value = true
   try {
-    await api.deleteTicket(props.id)
+    await api.archiveTicket(props.id)
     bus.refresh()
-    await router.push('/')
-    bus.openDrawer()
   } catch { /* ignore */ } finally {
     archiving.value = false
     archiveConfirmOpen.value = false
+  }
+}
+
+async function deleteTicket() {
+  if (deleting.value) return
+  deleting.value = true
+  try {
+    await api.deleteTicket(props.id)
+    bus.refresh()
+    await router.push('/')
+  } catch { /* ignore */ } finally {
+    deleting.value = false
+    deleteConfirmOpen.value = false
   }
 }
 
