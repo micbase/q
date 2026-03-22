@@ -19,11 +19,12 @@
 
           <!-- Right: dev link + restart + overflow -->
           <div class="flex items-center gap-2 shrink-0">
-            <button
+            <a
               v-if="devUrl"
-              @click="openDevPopup"
+              :href="devUrl"
+              target="_blank"
               class="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-0.5"
-            >dev <span class="text-xs">↗</span></button>
+            >dev <span class="text-xs">↗</span></a>
 
             <button
               v-if="ticket"
