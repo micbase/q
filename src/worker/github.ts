@@ -256,47 +256,50 @@ export async function maybeCreatePullRequest(
   if (!repoRes.ok) throw new Error(`Failed to get repo info: ${repoRes.status}`)
   const { default_branch: defaultBranch } = await repoRes.json() as { default_branch: string }
 
-  // Compare branch against default — check if branch exists and has commits ahead
+  // Compare branch against default — gives us ahead_by (guard) + commits (for title)
   const compareRes = await fetch(
-    `https://api.github.com/repos/${repo}/compare/${encodeURIComponent(defaultBranch)}...${encodeURIComponent(branch)}`,
+    `https://api.github.com/repos/${repo}/compare/${defaultBranch}...${branch}`,
     { headers },
   )
   if (!compareRes.ok) {
-    // 404 means the branch doesn't exist on remote — nothing to do
-    if (compareRes.status === 404) return null
+    if (compareRes.status === 404) return null // branch doesn't exist on remote
     throw new Error(`Failed to compare branches: ${compareRes.status}`)
   }
   const compare = await compareRes.json() as { ahead_by: number; commits: Array<{ commit: { message: string } }> }
-
   if (compare.ahead_by === 0 || compare.commits.length === 0) return null
 
   // PR title = first line of the first commit on this branch
   const title = compare.commits[0].commit.message.split('\n')[0].trim()
 
-  // Check if a PR already exists for this branch
-  const [owner] = repo.split('/')
-  const existingRes = await fetch(
-    `https://api.github.com/repos/${repo}/pulls?head=${encodeURIComponent(`${owner}:${branch}`)}&state=open`,
-    { headers },
-  )
-  if (existingRes.ok) {
-    const existing = await existingRes.json() as Array<{ html_url: string }>
-    if (existing.length > 0) {
-      console.log(`[github] PR already exists for ${branch}: ${existing[0].html_url}`)
-      return existing[0].html_url
-    }
-  }
-
-  // Create the PR
+  // Try to create the PR; if one already exists GitHub returns 422
   const prRes = await fetch(`https://api.github.com/repos/${repo}/pulls`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ title, body, head: branch, base: defaultBranch }),
   })
+
+  if (prRes.status === 422) {
+    // PR already exists — find and return it
+    const [owner] = repo.split('/')
+    const existingRes = await fetch(
+      `https://api.github.com/repos/${repo}/pulls?head=${owner}:${branch}&state=open`,
+      { headers },
+    )
+    if (existingRes.ok) {
+      const existing = await existingRes.json() as Array<{ html_url: string }>
+      if (existing.length > 0) {
+        console.log(`[github] PR already exists for ${branch}: ${existing[0].html_url}`)
+        return existing[0].html_url
+      }
+    }
+    return null
+  }
+
   if (!prRes.ok) {
     const errBody = await prRes.text()
     throw new Error(`Failed to create PR: ${prRes.status} ${errBody}`)
   }
+
   const pr = await prRes.json() as { html_url: string }
   console.log(`[github] Created PR for ${branch}: ${pr.html_url}`)
   return pr.html_url

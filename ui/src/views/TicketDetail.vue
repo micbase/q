@@ -17,8 +17,20 @@
             </template>
           </div>
 
-          <!-- Right: PR link + dev link + restart + overflow -->
+          <!-- Right: PR link + dev link + status + restart + overflow -->
           <div class="flex items-center gap-2 shrink-0">
+            <!-- Dev server status indicator -->
+            <div v-if="ticket" class="flex items-center gap-1.5">
+              <span :class="[
+                'inline-block w-2 h-2 rounded-full shrink-0',
+                devServerStatus === 'running' ? 'bg-green-500' :
+                devServerStatus === 'starting' ? 'bg-amber-400 animate-pulse' :
+                devServerStatus === 'error' ? 'bg-red-500' :
+                'bg-gray-300'
+              ]"></span>
+              <span class="text-xs text-gray-500">{{ devServerStatus }}</span>
+            </div>
+
             <a
               v-if="ticket?.pr_url"
               :href="ticket.pr_url"
@@ -57,10 +69,17 @@
                 >View logs</button>
                 <div class="border-t border-gray-100 my-1"></div>
                 <button
+                  v-if="isDevServerActive"
                   @click="stopDevServer(); desktopMenuOpen = false"
                   :disabled="devActionPending"
                   class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-40"
                 >Stop server</button>
+                <button
+                  v-else
+                  @click="startDevServer(); desktopMenuOpen = false"
+                  :disabled="devActionPending"
+                  class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                >Start server</button>
                 <button
                   @click="archiveConfirmOpen = true; desktopMenuOpen = false"
                   class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
@@ -100,7 +119,16 @@
           <StatusChip v-if="ticket" :status="ticketStatus" class="shrink-0" />
         </div>
 
-        <!-- Right: ··· -->
+        <!-- Right: status dot + ··· -->
+        <div v-if="ticket" class="flex items-center gap-1 shrink-0">
+          <span :class="[
+            'inline-block w-2 h-2 rounded-full',
+            devServerStatus === 'running' ? 'bg-green-500' :
+            devServerStatus === 'starting' ? 'bg-amber-400 animate-pulse' :
+            devServerStatus === 'error' ? 'bg-red-500' :
+            'bg-gray-300'
+          ]"></span>
+        </div>
         <button
           @click="mobileSheetOpen = true"
           class="text-gray-500 hover:text-gray-800 px-1.5 py-1 rounded hover:bg-gray-100 transition-colors font-bold tracking-widest text-sm leading-none shrink-0"
@@ -252,7 +280,8 @@
         v-model="reply"
         :placeholder="ticketStatus === 'done' ? 'Follow up...' : 'Type your reply...'"
         :disabled="inputDisabled"
-        @keydown.enter.exact.prevent="sendReply"
+        @keydown.enter.meta.prevent="sendReply"
+        @keydown.enter.ctrl.prevent="sendReply"
         rows="2"
         class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-50 resize-none"
       ></textarea>
@@ -295,10 +324,17 @@
             >View logs</button>
             <div class="border-t border-gray-100 my-1 mx-5"></div>
             <button
+              v-if="isDevServerActive"
               @click="stopDevServer(); mobileSheetOpen = false"
               :disabled="devActionPending"
               class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-red-600 hover:bg-red-50 disabled:opacity-40"
             >Stop server</button>
+            <button
+              v-else
+              @click="startDevServer(); mobileSheetOpen = false"
+              :disabled="devActionPending"
+              class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-gray-800 hover:bg-gray-50 disabled:opacity-40"
+            >Start server</button>
             <button
               @click="archiveConfirmOpen = true; mobileSheetOpen = false"
               class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-red-600 hover:bg-red-50"
@@ -653,6 +689,16 @@ async function restartDevServer() {
   devActionPending.value = true
   try {
     await api.restartDevServer(props.id)
+  } catch { /* ignore */ } finally {
+    devActionPending.value = false
+  }
+}
+
+async function startDevServer() {
+  if (devActionPending.value || !ticket.value) return
+  devActionPending.value = true
+  try {
+    await api.startDevServer(props.id)
   } catch { /* ignore */ } finally {
     devActionPending.value = false
   }
