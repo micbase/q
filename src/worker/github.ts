@@ -140,24 +140,21 @@ export async function ensureWorktree(containerId: string, ticketId: string, logT
   await execInContainer(containerId, ['mkdir', '-p', `${WORKTREE_BASE}/q`], logTag)
 
   if (remoteBranchExists) {
-    // Re-opened: create worktree tracking the existing remote branch
-    // First remove stale worktree reference if any
+    // Re-opened / container restart: create worktree tracking the existing remote branch.
+    // Prune stale worktree metadata, then delete local branch if it exists (ignore error),
+    // and create a fresh worktree from the remote branch.  This handles both the "paused
+    // ticket where only the worktree dir is missing" and the "fresh container after restart"
+    // cases without a fragile try/catch cascade.
     await execInContainer(containerId, [
       'git', '-C', '/workspace', 'worktree', 'prune',
     ], logTag)
+    // Delete local branch if present so worktree add -b doesn't complain
     await execInContainer(containerId, [
-      'git', '-C', '/workspace', 'worktree', 'add', wt, branch,
-    ], logTag).catch(async (err) => {
-      console.warn(`${t} Worktree add failed, retrying with branch reset:`, err.message ?? err)
-      log?.(`worktree add failed, retrying: ${err.message ?? err}`)
-      // Branch may exist locally but worktree was removed — reset it
-      await execInContainer(containerId, [
-        'git', '-C', '/workspace', 'branch', '-D', branch,
-      ], logTag)
-      await execInContainer(containerId, [
-        'git', '-C', '/workspace', 'worktree', 'add', wt, '-b', branch, `origin/${branch}`,
-      ], logTag)
-    })
+      'git', '-C', '/workspace', 'branch', '-D', branch,
+    ], logTag).catch(() => { /* branch may not exist locally — that's fine */ })
+    await execInContainer(containerId, [
+      'git', '-C', '/workspace', 'worktree', 'add', '-b', branch, wt, `origin/${branch}`,
+    ], logTag)
     console.log(`${t} Recreated worktree for ${branch} from remote`)
     log?.(`recreated worktree for ${branch} from remote`)
   } else {
