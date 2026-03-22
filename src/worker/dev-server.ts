@@ -52,13 +52,18 @@ export async function startDevServer(
   })
 
   // Read the container PID back from the file we just wrote.
+  // Retry a few times with short delays to handle the scheduling race between
+  // Docker starting the exec and the shell writing the pid file.
   let pid = 0
-  try {
-    const pidStr = await execInContainer(containerId, ['cat', pidFile], logTag, { User: 'root' })
-    pid = parseInt(pidStr.trim(), 10) || 0
-  } catch (err) {
-    console.warn(`${t} Could not read container PID from ${pidFile}:`, err)
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 100))
+    try {
+      const pidStr = await execInContainer(containerId, ['cat', pidFile], logTag, { User: 'root' })
+      pid = parseInt(pidStr.trim(), 10) || 0
+      if (pid > 0) break
+    } catch { /* file not written yet — retry */ }
   }
+  if (!pid) console.warn(`${t} Could not read container PID from ${pidFile}`)
 
   pids.set(ticketId, pid)
   pidFiles.set(ticketId, pidFile)
@@ -103,8 +108,14 @@ export async function stopDevServer(ticketId: string, containerId: string, logTa
   if (pid > 0) {
     console.log(`[dev ${logTag}] Stopping dev server (container pid ${pid})`)
     try {
-      // Kill the entire process group so children (e.g. spawned by npm/yarn scripts) also die.
-      await execInContainer(containerId, ['kill', '-9', `-${pid}`], logTag, { User: 'root' })
+      // Kill by actual PGID (read from /proc) so all children die regardless of
+      // whether Docker exec set the process as a new process group leader.
+      // Fall back to a direct kill if the group kill fails.
+      await execInContainer(containerId, ['sh', '-c',
+        `pgid=$(awk '{print $5}' /proc/${pid}/stat 2>/dev/null); ` +
+        `[ -n "$pgid" ] && [ "$pgid" -gt 1 ] 2>/dev/null && kill -9 -$pgid 2>/dev/null; ` +
+        `kill -9 ${pid} 2>/dev/null; true`
+      ], logTag, { User: 'root' })
     } catch {
       // Process may have already exited — that's fine
     }

@@ -317,7 +317,7 @@
             <div class="flex items-center gap-2">
               <span class="font-semibold text-sm">Logs</span>
               <span class="font-mono text-xs text-gray-500">{{ props.id }}</span>
-              <span v-if="isRunning" class="text-xs text-amber-400 animate-pulse">● live</span>
+              <span v-if="isDevServerActive" class="text-xs text-amber-400 animate-pulse">● live</span>
             </div>
             <div class="flex items-center gap-2">
               <button
@@ -369,7 +369,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
-import type { Ticket, MessageStreamEvent, MessageType } from '../../../shared/types'
+import type { Ticket, MessageStreamEvent, MessageType, DevServerStatus } from '../../../shared/types'
 import { bus } from '../bus'
 import StatusChip from '../components/StatusChip.vue'
 import PriorityPips from '../components/PriorityPips.vue'
@@ -431,9 +431,16 @@ const archiveConfirmOpen = ref(false)
 const archiving = ref(false)
 let es: EventSource | null = null
 let unsubStatus: (() => void) | undefined
+let unsubDevServerStatus: (() => void) | undefined
+
+const devServerStatus = ref<DevServerStatus>('stopped')
 
 const isRunning = computed(() =>
   ticketStatus.value === 'running' || ticketStatus.value === 'queued'
+)
+
+const isDevServerActive = computed(() =>
+  devServerStatus.value === 'running' || devServerStatus.value === 'starting'
 )
 
 const inputDisabled = computed(() => sending.value || isRunning.value)
@@ -692,15 +699,18 @@ function openStream(id: string) {
 async function load(id: string) {
   es?.close()
   unsubStatus?.()
+  unsubDevServerStatus?.()
   ticket.value = null
   messages.value = []
   ticketStatus.value = 'queued'
+  devServerStatus.value = 'stopped'
   error.value = ''
 
   try {
     ticket.value = await api.getTicket(id)
     if (ticket.value) {
       ticketStatus.value = ticket.value.status
+      devServerStatus.value = ticket.value.dev_server_status
     }
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load ticket'
@@ -709,6 +719,10 @@ async function load(id: string) {
 
   unsubStatus = bus.onTicketStatus((ticketId, status) => {
     if (ticketId === id) ticketStatus.value = status
+  })
+
+  unsubDevServerStatus = bus.onDevServerStatus((ticketId, status) => {
+    if (ticketId === id) devServerStatus.value = status
   })
 
   openStream(id)
@@ -720,13 +734,13 @@ onMounted(() => {
 })
 watch(() => props.id, load)
 
-// Poll logs every 2s while the drawer is open and the ticket is running
+// Poll logs every 2s while the drawer is open and the dev server is active
 watchEffect((onCleanup) => {
   if (logsPollHandle) {
     clearInterval(logsPollHandle)
     logsPollHandle = null
   }
-  if (logsOpen.value && isRunning.value) {
+  if (logsOpen.value && isDevServerActive.value) {
     logsPollHandle = setInterval(fetchLogs, 2000)
   }
   onCleanup(() => {
@@ -740,6 +754,7 @@ watchEffect((onCleanup) => {
 onUnmounted(() => {
   es?.close()
   unsubStatus?.()
+  unsubDevServerStatus?.()
   scrollEl.value?.removeEventListener('scroll', onScroll)
   if (logsPollHandle) clearInterval(logsPollHandle)
 })
