@@ -13,12 +13,15 @@ import { emitTicketStatusChange } from '../broker/emit'
 
 /** Check one ticket and archive it if its PR has been merged. */
 export async function checkAndArchiveIfMerged(ticketId: string, githubRepo: string): Promise<void> {
+  console.log(`[merge-watcher] Checking ticket ${ticketId} (${githubRepo})`)
   try {
     const merged = await checkPRMerged(githubRepo, ticketId)
     if (merged) {
       console.log(`[merge-watcher] Ticket ${ticketId} PR merged — archiving`)
       await db.archiveTicket(ticketId)
       await emitTicketStatusChange(ticketId, 'archived')
+    } else {
+      console.log(`[merge-watcher] Ticket ${ticketId} PR not yet merged`)
     }
   } catch (err) {
     console.error(`[merge-watcher] Error checking ticket ${ticketId}:`, err)
@@ -37,7 +40,9 @@ export async function checkAllOnStartup(): Promise<void> {
 
   if (candidates.length === 0) return
   console.log(`[merge-watcher] Startup scan: checking ${candidates.length} done ticket(s)`)
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     candidates.map(({ ticket_id, github_repo }) => checkAndArchiveIfMerged(ticket_id, github_repo))
   )
+  const failed = results.filter(r => r.status === 'rejected').length
+  console.log(`[merge-watcher] Startup scan complete: ${candidates.length} checked, ${failed} failed`)
 }
