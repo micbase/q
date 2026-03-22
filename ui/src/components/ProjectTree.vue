@@ -65,7 +65,7 @@ import { bus } from '../bus'
 
 const emit = defineEmits<{ close: [] }>()
 
-type FilterValue = 'all' | 'running' | 'paused' | 'failed' | 'done'
+type FilterValue = 'all' | 'running' | 'paused' | 'failed' | 'done' | 'archived'
 
 const filters: { label: string; value: FilterValue }[] = [
   { label: 'All', value: 'all' },
@@ -73,6 +73,7 @@ const filters: { label: string; value: FilterValue }[] = [
   { label: 'Paused', value: 'paused' },
   { label: 'Failed', value: 'failed' },
   { label: 'Done', value: 'done' },
+  { label: 'Archived', value: 'archived' },
 ]
 
 interface ProjectGroup {
@@ -101,6 +102,7 @@ function dotClass(status: TicketStatus): string {
     case 'failed':   return 'bg-red-500'
     case 'paused':   return 'bg-orange-500'
     case 'queued':   return 'bg-gray-400'
+    case 'archived': return 'bg-purple-400'
     default:         return 'bg-gray-300'
   }
 }
@@ -141,7 +143,7 @@ const filteredGroups = computed((): ProjectGroup[] => {
     .map(group => ({
       ...group,
       filteredTickets: activeFilter.value === 'all'
-        ? group.tickets
+        ? group.tickets.filter(t => t.status !== 'archived')
         : group.tickets.filter(t => t.status === activeFilter.value),
     }))
     .filter(group => group.filteredTickets.length > 0)

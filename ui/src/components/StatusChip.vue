@@ -24,7 +24,8 @@ const chipClass = computed(() => {
     case 'paused':   return 'bg-orange-100 text-orange-700'
     case 'done':     return 'bg-green-100 text-green-700'
     case 'failed':   return 'bg-red-100 text-red-700'
-    case 'deleted':   return 'bg-gray-200 text-gray-500'
+    case 'archived': return 'bg-purple-100 text-purple-700'
+    case 'deleted':  return 'bg-gray-200 text-gray-500'
     default:         return 'bg-gray-100 text-gray-600'
   }
 })
@@ -36,7 +37,8 @@ const label = computed(() => {
     case 'paused':   return 'Paused'
     case 'done':     return 'Done'
     case 'failed':   return 'Failed'
-    case 'deleted':   return 'Deleted'
+    case 'archived': return 'Archived'
+    case 'deleted':  return 'Deleted'
     default:         return props.status
   }
 })

@@ -61,6 +61,9 @@ export const api = {
   deleteTicket: (id: string): Promise<void> =>
     request(`/tickets/${id}`, { method: 'DELETE' }),
 
+  archiveTicket: (id: string): Promise<void> =>
+    request(`/tickets/${id}/archive`, { method: 'POST' }),
+
   getMessages: (id: string): Promise<Message[]> =>
     request(`/tickets/${id}/messages`),
 
