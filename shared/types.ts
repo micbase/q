@@ -1,4 +1,4 @@
-export type TicketStatus = 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'deleted'
+export type TicketStatus = 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'deleted' | 'archived'
 export type ProjectStatus = 'active' | 'archived' | 'deleted'
 export type ContainerStatus = 'stopped' | 'starting' | 'running'
 export type DevServerStatus = 'stopped' | 'starting' | 'running' | 'error'

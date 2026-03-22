@@ -39,7 +39,7 @@
     <!-- Layout -->
     <div class="flex flex-1 min-h-0">
       <!-- Left: project tree — desktop only -->
-      <aside class="hidden md:flex md:flex-col w-72 shrink-0 border-r border-gray-200 bg-gray-50">
+      <aside class="hidden md:flex md:flex-col w-80 shrink-0 border-r border-gray-200 bg-gray-50">
         <ProjectTree />
       </aside>
 
