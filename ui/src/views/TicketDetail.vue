@@ -112,7 +112,16 @@
           <StatusChip v-if="ticket" :status="ticketStatus" class="shrink-0" />
         </div>
 
-        <!-- Right: ··· -->
+        <!-- Right: status dot + ··· -->
+        <div v-if="ticket" class="flex items-center gap-1 shrink-0">
+          <span :class="[
+            'inline-block w-2 h-2 rounded-full',
+            devServerStatus === 'running' ? 'bg-green-500' :
+            devServerStatus === 'starting' ? 'bg-amber-400 animate-pulse' :
+            devServerStatus === 'error' ? 'bg-red-500' :
+            'bg-gray-300'
+          ]"></span>
+        </div>
         <button
           @click="mobileSheetOpen = true"
           class="text-gray-500 hover:text-gray-800 px-1.5 py-1 rounded hover:bg-gray-100 transition-colors font-bold tracking-widest text-sm leading-none shrink-0"
