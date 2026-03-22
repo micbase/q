@@ -173,9 +173,9 @@ export async function stopContainer(ticketId: string): Promise<void> {
   // After the container stops, check if the PR was merged and archive if so
   if (config.githubAppId) {
     const ticket = await db.getTicket(ticketId)
-    if (ticket?.status === 'done') {
+    if (ticket) {
       const project = await db.getProject(ticket.project_id)
-      if (project?.github_repo) {
+      if (project?.github_repo && ticket.status === 'done') {
         void checkAndArchiveIfMerged(ticketId, project.github_repo)
       }
     }

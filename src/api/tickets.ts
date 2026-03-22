@@ -92,9 +92,6 @@ export async function ticketRoutes(app: FastifyInstance) {
     await withTransaction(async (tx) => {
       const ticket = await db.getTicket(req.params.id, tx)
       if (!ticket) { reply.status(404).send({ error: 'Not found' }); return }
-      if (ticket.status !== 'done') {
-        reply.status(409).send({ error: 'Only done tickets can be archived' }); return
-      }
       await db.archiveTicket(req.params.id, tx)
       await emitTicketStatusChange(req.params.id, 'archived', undefined, tx)
       reply.status(204).send()
