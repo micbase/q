@@ -2,7 +2,7 @@ import { config, validate, scrubEnv } from './config'
 import { testConnection, getPool } from './db/connection'
 import { buildServer } from './api/server'
 import { scheduler } from './worker/scheduler'
-import { mergeWatcher } from './worker/merge-watcher'
+import { checkAllOnStartup } from './worker/merge-watcher'
 import * as provisioner from './worker/provisioner'
 
 async function main(): Promise<void> {
@@ -27,7 +27,7 @@ async function main(): Promise<void> {
 
   // Start worker scheduler
   scheduler.start()
-  if (config.githubAppId) mergeWatcher.start()
+  if (config.githubAppId) void checkAllOnStartup()
 
   console.log('[q] Running')
   if (config.dryRun) {
@@ -47,7 +47,6 @@ async function main(): Promise<void> {
   const shutdown = async () => {
     console.log('\n[q] Shutting down...')
     scheduler.stop()
-    mergeWatcher.stop()
     if (proxyServer) await new Promise<void>((resolve) => proxyServer!.close(() => resolve()))
     await provisioner.stopAll()
     await app.close()
