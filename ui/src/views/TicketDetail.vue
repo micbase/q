@@ -265,13 +265,11 @@
         <div class="relative bg-white rounded-t-2xl pb-safe shadow-xl">
           <div class="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-2"></div>
           <div class="py-2">
-            <a
+            <button
               v-if="devUrl"
-              :href="devUrl"
-              target="_blank"
-              @click="mobileSheetOpen = false"
-              class="flex items-center gap-3 px-5 py-3.5 text-base text-blue-600 hover:bg-gray-50"
-            >Open dev server <span class="text-sm">↗</span></a>
+              @click="openDevPopup(); mobileSheetOpen = false"
+              class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-blue-600 hover:bg-gray-50"
+            >Open dev server <span class="text-sm">↗</span></button>
             <button
               @click="restartDevServer(); mobileSheetOpen = false"
               :disabled="devActionPending"
@@ -332,7 +330,7 @@
             </div>
           </div>
           <!-- Log lines -->
-          <div ref="logsScrollEl" class="flex-1 overflow-y-auto px-4 py-3 font-mono text-xs leading-relaxed">
+          <div ref="logsScrollEl" class="flex-1 min-h-0 overflow-y-auto px-4 py-3 font-mono text-xs leading-relaxed">
             <div v-if="logLines.length === 0" class="text-gray-500 text-center py-8">No logs yet.</div>
             <div v-for="(line, i) in logLines" :key="i" class="whitespace-pre-wrap break-all text-gray-300">{{ line }}</div>
           </div>
@@ -629,6 +627,11 @@ async function sendReply() {
   } finally {
     sending.value = false
   }
+}
+
+function openDevPopup() {
+  if (!devUrl.value) return
+  window.open(devUrl.value, '_blank', 'noopener,noreferrer,popup,width=1280,height=900')
 }
 
 async function restartDevServer() {
