@@ -331,7 +331,10 @@ export async function checkPRMerged(repo: string, ticketId: string): Promise<boo
       'X-GitHub-Api-Version': '2022-11-28',
     },
   })
-  if (!res.ok) return false
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`GitHub API error ${res.status} for ${repo}: ${body}`)
+  }
 
   const pulls = await res.json() as Array<{ merged_at: string | null }>
   return pulls.length > 0 && pulls[0].merged_at !== null
