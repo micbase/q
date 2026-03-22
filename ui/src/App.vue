@@ -44,13 +44,13 @@
       </aside>
 
       <!-- Right: main content -->
-      <main class="flex-1 min-h-0 overflow-hidden flex flex-col pb-16 md:pb-0">
+      <main class="flex-1 min-h-0 overflow-hidden flex flex-col mobile-main-content">
         <RouterView />
       </main>
     </div>
 
     <!-- Mobile bottom nav -->
-    <nav class="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-30 flex items-stretch h-16">
+    <nav class="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-30 flex items-stretch" style="height: calc(4rem + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);">
       <!-- Tickets -->
       <button
         @click="mobileDrawerOpen = true"
@@ -185,6 +185,16 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Reserve space for the mobile nav + iOS home indicator */
+.mobile-main-content {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+}
+@media (min-width: 768px) {
+  .mobile-main-content {
+    padding-bottom: 0;
+  }
+}
+
 .fade-enter-active, .fade-leave-active { transition: opacity 0.15s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
