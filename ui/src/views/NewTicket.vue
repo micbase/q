@@ -70,6 +70,7 @@
           rows="8"
           placeholder="Describe the task in detail. Include relevant file paths, error messages, expected behavior..."
           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+          @keydown="(e: KeyboardEvent) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit() }"
         />
       </div>
 
