@@ -2,7 +2,7 @@
 import type { TicketStatus, DevServerStatus } from '../../shared/types'
 
 type MessageListener = () => void
-type StatusListener = (ticketId: string, status: TicketStatus) => void
+type StatusListener = (ticketId: string, status: TicketStatus, prUrl?: string) => void
 type DevServerStatusListener = (ticketId: string, status: DevServerStatus) => void
 
 const listeners = new Set<MessageListener>()
@@ -16,7 +16,7 @@ export const bus = {
   onOpenDrawer(fn: MessageListener) { drawerListeners.add(fn); return () => drawerListeners.delete(fn) },
   openDrawer() { drawerListeners.forEach(fn => fn()) },
   onTicketStatus(fn: StatusListener) { statusListeners.add(fn); return () => statusListeners.delete(fn) },
-  emitTicketStatus(ticketId: string, status: TicketStatus) { statusListeners.forEach(fn => fn(ticketId, status)) },
+  emitTicketStatus(ticketId: string, status: TicketStatus, prUrl?: string) { statusListeners.forEach(fn => fn(ticketId, status, prUrl)) },
   onDevServerStatus(fn: DevServerStatusListener) { devServerStatusListeners.add(fn); return () => devServerStatusListeners.delete(fn) },
   emitDevServerStatus(ticketId: string, status: DevServerStatus) { devServerStatusListeners.forEach(fn => fn(ticketId, status)) },
 }

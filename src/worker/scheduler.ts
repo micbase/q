@@ -145,7 +145,7 @@ class Scheduler {
           await withTransaction(async (tx) => {
             if (prUrl) await db.setTicketPrUrl(ticket.id, prUrl!, tx)
             await emitMessage(ticket.id, event.content, 'done', event.role, { claudeSessionId: event.claude_session_id }, tx)
-            await emitTicketStatusChange(ticket.id, 'done', undefined, tx)
+            await emitTicketStatusChange(ticket.id, 'done', undefined, tx, prUrl ?? undefined)
           })
           ticketLog(ticket.id, 'completed')
           await notify.send(`✅ Done: ${ticket.title}`)

@@ -181,11 +181,12 @@ function handleGlobalEvent(event: StatusStreamEvent) {
     const t = tickets.value.find(t => t.id === event.ticket_id)
     if (t) {
       t.status = event.ticket_status
+      if (event.pr_url) t.pr_url = event.pr_url
     } else {
       // Unknown ticket — do a full reload to pick it up
       load()
     }
-    bus.emitTicketStatus(event.ticket_id, event.ticket_status)
+    bus.emitTicketStatus(event.ticket_id, event.ticket_status, event.pr_url)
   } else if (event.type === 'DevServerStatusChange') {
     const t = tickets.value.find(t => t.id === event.ticket_id)
     if (t) t.dev_server_status = event.dev_server_status
