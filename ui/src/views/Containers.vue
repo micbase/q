@@ -1,8 +1,6 @@
 <template>
-  <div class="flex-1 overflow-y-auto px-5 py-4 max-w-3xl">
-    <div class="mb-5">
-      <h1 class="text-xl font-semibold">Containers</h1>
-    </div>
+  <div class="flex-1 overflow-y-auto px-5 py-4">
+    <h1 class="text-xl font-semibold mb-5">Containers</h1>
 
     <div v-if="loading && groups.length === 0" class="text-sm text-gray-400 py-8 text-center">Loading...</div>
     <div v-else-if="loadError" class="text-sm text-red-500 py-8 text-center">{{ loadError }}</div>
