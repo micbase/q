@@ -1,5 +1,5 @@
 <template>
-  <div class="flex-1 overflow-y-auto px-5 py-4 max-w-2xl">
+  <div class="flex-1 overflow-y-auto px-5 py-4">
     <div class="flex items-center justify-between mb-5">
       <h1 class="text-xl font-semibold">Projects</h1>
       <button
