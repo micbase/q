@@ -64,9 +64,13 @@ export async function containerRoutes(app: FastifyInstance) {
     if (config.dryRun) return reply.status(400).send({ error: 'Not available in dry run mode' })
     const ticket = await db.getTicket(req.params.id)
     if (!ticket) return reply.status(404).send({ error: 'Not found' })
+    if (ticket.status === 'failed' || ticket.status === 'deleted') {
+      return reply.status(400).send({ error: 'Cannot start dev server for failed/deleted ticket' })
+    }
     const project = await db.getProject(ticket.project_id)
     if (!project) return reply.status(404).send({ error: 'Project not found' })
     if (!project.dev_command) return reply.status(400).send({ error: 'No dev command configured for this project' })
+    await provisioner.ensureRunning(project, ticket.id)
     const containerId = provisioner.getContainerId(ticket.id)
     if (!containerId) return reply.status(409).send({ error: 'Container is not running' })
     const logTag = provisioner.getContainerTag(ticket.id)
@@ -92,9 +96,13 @@ export async function containerRoutes(app: FastifyInstance) {
     if (config.dryRun) return reply.status(400).send({ error: 'Not available in dry run mode' })
     const ticket = await db.getTicket(req.params.id)
     if (!ticket) return reply.status(404).send({ error: 'Not found' })
+    if (ticket.status === 'failed' || ticket.status === 'deleted') {
+      return reply.status(400).send({ error: 'Cannot restart dev server for failed/deleted ticket' })
+    }
     const project = await db.getProject(ticket.project_id)
     if (!project) return reply.status(404).send({ error: 'Project not found' })
     if (!project.dev_command) return reply.status(400).send({ error: 'No dev command configured for this project' })
+    await provisioner.ensureRunning(project, ticket.id)
     const containerId = provisioner.getContainerId(ticket.id)
     if (!containerId) return reply.status(409).send({ error: 'Container is not running' })
     const logTag = provisioner.getContainerTag(ticket.id)
