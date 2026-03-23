@@ -313,11 +313,13 @@ export async function maybeCreatePullRequest(
  * if GitHub App credentials are not configured.
  */
 export async function checkPRMerged(repo: string, ticketId: string): Promise<boolean> {
-  let jwt: string
+  if (!config.githubAppId || !config.githubPrivateKey) return false
+
+  let token: string
   try {
-    jwt = createAppJWT()
+    token = await getInstallationToken(repo, { pull_requests: 'read' })
   } catch {
-    return false // GitHub App not configured
+    return false // GitHub App not configured or installation not found
   }
 
   const branch = `q/${ticketId}`
@@ -326,7 +328,7 @@ export async function checkPRMerged(repo: string, ticketId: string): Promise<boo
 
   const res = await fetch(url, {
     headers: {
-      Authorization: `Bearer ${jwt}`,
+      Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
     },
