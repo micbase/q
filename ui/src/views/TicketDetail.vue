@@ -826,13 +826,10 @@ async function load(id: string) {
     return
   }
 
-  unsubStatus = bus.onTicketStatus((ticketId, status) => {
+  unsubStatus = bus.onTicketStatus((ticketId, status, prUrl) => {
     if (ticketId !== id) return
     ticketStatus.value = status
-    // Re-fetch ticket on done so pr_url (set after status change) is reflected
-    if (status === 'done') {
-      api.getTicket(id).then(t => { ticket.value = t }).catch(() => {})
-    }
+    if (prUrl && ticket.value) ticket.value = { ...ticket.value, pr_url: prUrl }
   })
 
   unsubDevServerStatus = bus.onDevServerStatus((ticketId, status) => {

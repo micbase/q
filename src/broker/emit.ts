@@ -35,11 +35,12 @@ export async function emitTicketStatusChange(
   status: TicketStatus,
   error?: string,
   q: DB = defaultDB,
+  prUrl?: string,
 ): Promise<void> {
   if (status === 'failed' && error) {
     await db.updateTicketStatusFailed(ticketId, error, q)
   } else {
     await db.updateTicketStatus(ticketId, status, q)
   }
-  broker.publishStatus({ type: 'TicketStatusChange', ticket_id: ticketId, ticket_status: status })
+  broker.publishStatus({ type: 'TicketStatusChange', ticket_id: ticketId, ticket_status: status, ...(prUrl ? { pr_url: prUrl } : {}) })
 }

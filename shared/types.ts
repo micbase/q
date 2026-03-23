@@ -34,7 +34,7 @@ export interface MessageStreamEvent extends ClaudeEvent {
 
 // Global channel: lightweight status-change events
 export type StatusStreamEvent =
-  | { type: 'TicketStatusChange';    ticket_id: string; ticket_status: TicketStatus }
+  | { type: 'TicketStatusChange';    ticket_id: string; ticket_status: TicketStatus; pr_url?: string }
   | { type: 'ContainerStatusChange'; ticket_id: string; container_status: ContainerStatus }
   | { type: 'DevServerStatusChange'; ticket_id: string; dev_server_status: DevServerStatus }
 
