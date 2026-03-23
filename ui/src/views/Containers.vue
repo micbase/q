@@ -1,11 +1,7 @@
 <template>
   <div class="flex-1 overflow-y-auto px-5 py-4 max-w-3xl">
-    <div class="flex items-center justify-between mb-5">
+    <div class="mb-5">
       <h1 class="text-xl font-semibold">Containers</h1>
-      <button
-        @click="load"
-        class="text-sm text-gray-500 hover:text-gray-700 border border-gray-300 rounded-lg px-3 py-1.5 transition-colors"
-      >Refresh</button>
     </div>
 
     <div v-if="loading && groups.length === 0" class="text-sm text-gray-400 py-8 text-center">Loading...</div>
@@ -27,95 +23,100 @@
             :key="ticket.id"
             class="px-4 py-3"
           >
-            <!-- Ticket title + status -->
-            <div class="flex items-center gap-2 mb-2">
-              <RouterLink
-                :to="`/tickets/${ticket.id}`"
-                class="text-sm font-medium text-gray-900 hover:text-blue-600 truncate"
-              >{{ ticket.title }}</RouterLink>
-              <StatusChip :status="ticket.status" class="shrink-0" />
-            </div>
-
-            <!-- Container row -->
-            <div class="flex items-center gap-2">
-              <span class="text-xs font-medium text-gray-500 w-20 shrink-0">Container</span>
-              <span
-                class="text-xs font-medium px-2 py-0.5 rounded-full shrink-0"
-                :class="containerStatusClass(ticket.container_status)"
-              >{{ ticket.container_status }}</span>
-              <div class="flex items-center gap-1.5 shrink-0">
-                <button
-                  @click="doContainerAction('start', ticket.id)"
-                  :disabled="!canStart(ticket) || !!pending[ticket.id]"
-                  title="Start"
-                  class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  :class="canStart(ticket) && !pending[ticket.id]
-                    ? 'border-green-300 text-green-700 hover:bg-green-50'
-                    : 'border-gray-200 text-gray-400'"
-                >{{ pending[ticket.id] === 'start' ? '…' : 'Start' }}</button>
-                <button
-                  @click="doContainerAction('stop', ticket.id)"
-                  :disabled="!canStop(ticket) || !!pending[ticket.id]"
-                  title="Kill"
-                  class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  :class="canStop(ticket) && !pending[ticket.id]
-                    ? 'border-red-300 text-red-700 hover:bg-red-50'
-                    : 'border-gray-200 text-gray-400'"
-                >{{ pending[ticket.id] === 'stop' ? '…' : 'Kill' }}</button>
-                <button
-                  @click="doContainerAction('restart', ticket.id)"
-                  :disabled="!canRestart(ticket) || !!pending[ticket.id]"
-                  title="Restart (kill then start)"
-                  class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  :class="canRestart(ticket) && !pending[ticket.id]
-                    ? 'border-blue-300 text-blue-700 hover:bg-blue-50'
-                    : 'border-gray-200 text-gray-400'"
-                >{{ pending[ticket.id] === 'restart' ? '…' : 'Restart' }}</button>
+            <div class="flex items-start gap-4">
+              <!-- Ticket title + status (left) -->
+              <div class="flex-1 min-w-0 flex items-center gap-2 pt-0.5">
+                <RouterLink
+                  :to="`/tickets/${ticket.id}`"
+                  class="text-sm font-medium text-gray-900 hover:text-blue-600 truncate"
+                >{{ ticket.title }}</RouterLink>
+                <StatusChip :status="ticket.status" class="shrink-0" />
               </div>
-              <span v-if="errors[ticket.id]" class="text-xs text-red-500 shrink-0 max-w-32 truncate" :title="errors[ticket.id]">
-                {{ errors[ticket.id] }}
-              </span>
-            </div>
 
-            <!-- Dev server row (only if project has dev command) -->
-            <div v-if="group.hasDevCommand" class="flex items-center gap-2 mt-1.5">
-              <span class="text-xs font-medium text-purple-600 w-20 shrink-0">Dev Server</span>
-              <span
-                class="text-xs font-medium px-2 py-0.5 rounded-full shrink-0"
-                :class="devServerStatusClass(ticket.dev_server_status)"
-              >{{ ticket.dev_server_status }}</span>
-              <div class="flex items-center gap-1.5 shrink-0">
-                <button
-                  @click="doDevAction('start', ticket.id)"
-                  :disabled="!canDevStart(ticket) || !!devPending[ticket.id]"
-                  title="Start dev server"
-                  class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  :class="canDevStart(ticket) && !devPending[ticket.id]
-                    ? 'border-green-300 text-green-700 hover:bg-green-50'
-                    : 'border-gray-200 text-gray-400'"
-                >{{ devPending[ticket.id] === 'start' ? '…' : 'Start' }}</button>
-                <button
-                  @click="doDevAction('stop', ticket.id)"
-                  :disabled="!canDevStop(ticket) || !!devPending[ticket.id]"
-                  title="Stop dev server"
-                  class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  :class="canDevStop(ticket) && !devPending[ticket.id]
-                    ? 'border-red-300 text-red-700 hover:bg-red-50'
-                    : 'border-gray-200 text-gray-400'"
-                >{{ devPending[ticket.id] === 'stop' ? '…' : 'Stop' }}</button>
-                <button
-                  @click="doDevAction('restart', ticket.id)"
-                  :disabled="!canDevRestart(ticket) || !!devPending[ticket.id]"
-                  title="Restart dev server"
-                  class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  :class="canDevRestart(ticket) && !devPending[ticket.id]
-                    ? 'border-purple-300 text-purple-700 hover:bg-purple-50'
-                    : 'border-gray-200 text-gray-400'"
-                >{{ devPending[ticket.id] === 'restart' ? '…' : 'Restart' }}</button>
+              <!-- Right side: container + dev server rows stacked -->
+              <div class="flex flex-col gap-1.5 shrink-0 items-end">
+                <!-- Container row -->
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-medium text-gray-500">Container</span>
+                  <span
+                    class="text-xs font-medium px-2 py-0.5 rounded-full"
+                    :class="containerStatusClass(ticket.container_status)"
+                  >{{ ticket.container_status }}</span>
+                  <div class="flex items-center gap-1.5">
+                    <button
+                      @click="doContainerAction('start', ticket.id)"
+                      :disabled="!canStart(ticket) || !!pending[ticket.id]"
+                      title="Start"
+                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      :class="canStart(ticket) && !pending[ticket.id]
+                        ? 'border-green-300 text-green-700 hover:bg-green-50'
+                        : 'border-gray-200 text-gray-400'"
+                    >{{ pending[ticket.id] === 'start' ? '…' : 'Start' }}</button>
+                    <button
+                      @click="doContainerAction('stop', ticket.id)"
+                      :disabled="!canStop(ticket) || !!pending[ticket.id]"
+                      title="Kill"
+                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      :class="canStop(ticket) && !pending[ticket.id]
+                        ? 'border-red-300 text-red-700 hover:bg-red-50'
+                        : 'border-gray-200 text-gray-400'"
+                    >{{ pending[ticket.id] === 'stop' ? '…' : 'Kill' }}</button>
+                    <button
+                      @click="doContainerAction('restart', ticket.id)"
+                      :disabled="!canRestart(ticket) || !!pending[ticket.id]"
+                      title="Restart (kill then start)"
+                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      :class="canRestart(ticket) && !pending[ticket.id]
+                        ? 'border-blue-300 text-blue-700 hover:bg-blue-50'
+                        : 'border-gray-200 text-gray-400'"
+                    >{{ pending[ticket.id] === 'restart' ? '…' : 'Restart' }}</button>
+                  </div>
+                  <span v-if="errors[ticket.id]" class="text-xs text-red-500 max-w-32 truncate" :title="errors[ticket.id]">
+                    {{ errors[ticket.id] }}
+                  </span>
+                </div>
+
+                <!-- Dev server row (only if project has dev command) -->
+                <div v-if="group.hasDevCommand" class="flex items-center gap-2">
+                  <span class="text-xs font-medium text-purple-600">Dev Server</span>
+                  <span
+                    class="text-xs font-medium px-2 py-0.5 rounded-full"
+                    :class="devServerStatusClass(ticket.dev_server_status)"
+                  >{{ ticket.dev_server_status }}</span>
+                  <div class="flex items-center gap-1.5">
+                    <button
+                      @click="doDevAction('start', ticket.id)"
+                      :disabled="!canDevStart(ticket) || !!devPending[ticket.id]"
+                      title="Start dev server"
+                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      :class="canDevStart(ticket) && !devPending[ticket.id]
+                        ? 'border-green-300 text-green-700 hover:bg-green-50'
+                        : 'border-gray-200 text-gray-400'"
+                    >{{ devPending[ticket.id] === 'start' ? '…' : 'Start' }}</button>
+                    <button
+                      @click="doDevAction('stop', ticket.id)"
+                      :disabled="!canDevStop(ticket) || !!devPending[ticket.id]"
+                      title="Stop dev server"
+                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      :class="canDevStop(ticket) && !devPending[ticket.id]
+                        ? 'border-red-300 text-red-700 hover:bg-red-50'
+                        : 'border-gray-200 text-gray-400'"
+                    >{{ devPending[ticket.id] === 'stop' ? '…' : 'Stop' }}</button>
+                    <button
+                      @click="doDevAction('restart', ticket.id)"
+                      :disabled="!canDevRestart(ticket) || !!devPending[ticket.id]"
+                      title="Restart dev server"
+                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      :class="canDevRestart(ticket) && !devPending[ticket.id]
+                        ? 'border-purple-300 text-purple-700 hover:bg-purple-50'
+                        : 'border-gray-200 text-gray-400'"
+                    >{{ devPending[ticket.id] === 'restart' ? '…' : 'Restart' }}</button>
+                  </div>
+                  <span v-if="devErrors[ticket.id]" class="text-xs text-red-500 max-w-32 truncate" :title="devErrors[ticket.id]">
+                    {{ devErrors[ticket.id] }}
+                  </span>
+                </div>
               </div>
-              <span v-if="devErrors[ticket.id]" class="text-xs text-red-500 shrink-0 max-w-32 truncate" :title="devErrors[ticket.id]">
-                {{ devErrors[ticket.id] }}
-              </span>
             </div>
           </div>
         </div>
