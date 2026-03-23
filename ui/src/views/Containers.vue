@@ -33,13 +33,13 @@
                 <StatusChip :status="ticket.status" class="shrink-0" />
               </div>
 
-              <!-- Right side: container + dev server rows stacked -->
-              <div class="flex flex-col gap-1.5 shrink-0 items-end">
+              <!-- Right side: container + dev server rows stacked, columns aligned -->
+              <div class="flex flex-col gap-1.5 shrink-0">
                 <!-- Container row -->
                 <div class="flex items-center gap-2">
-                  <span class="text-xs font-medium text-gray-500">Container</span>
+                  <span class="text-xs font-medium text-gray-500 w-20 text-right shrink-0">Container</span>
                   <span
-                    class="text-xs font-medium px-2 py-0.5 rounded-full"
+                    class="text-xs font-medium px-2 py-0.5 rounded-full w-16 text-center shrink-0"
                     :class="containerStatusClass(ticket.container_status)"
                   >{{ ticket.container_status }}</span>
                   <div class="flex items-center gap-1.5">
@@ -47,7 +47,7 @@
                       @click="doContainerAction('start', ticket.id)"
                       :disabled="!canStart(ticket) || !!pending[ticket.id]"
                       title="Start"
-                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed w-16 text-center"
                       :class="canStart(ticket) && !pending[ticket.id]
                         ? 'border-green-300 text-green-700 hover:bg-green-50'
                         : 'border-gray-200 text-gray-400'"
@@ -56,7 +56,7 @@
                       @click="doContainerAction('stop', ticket.id)"
                       :disabled="!canStop(ticket) || !!pending[ticket.id]"
                       title="Kill"
-                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed w-16 text-center"
                       :class="canStop(ticket) && !pending[ticket.id]
                         ? 'border-red-300 text-red-700 hover:bg-red-50'
                         : 'border-gray-200 text-gray-400'"
@@ -65,7 +65,7 @@
                       @click="doContainerAction('restart', ticket.id)"
                       :disabled="!canRestart(ticket) || !!pending[ticket.id]"
                       title="Restart (kill then start)"
-                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed w-16 text-center"
                       :class="canRestart(ticket) && !pending[ticket.id]
                         ? 'border-blue-300 text-blue-700 hover:bg-blue-50'
                         : 'border-gray-200 text-gray-400'"
@@ -78,9 +78,9 @@
 
                 <!-- Dev server row (only if project has dev command) -->
                 <div v-if="group.hasDevCommand" class="flex items-center gap-2">
-                  <span class="text-xs font-medium text-purple-600">Dev Server</span>
+                  <span class="text-xs font-medium text-purple-600 w-20 text-right shrink-0">Dev Server</span>
                   <span
-                    class="text-xs font-medium px-2 py-0.5 rounded-full"
+                    class="text-xs font-medium px-2 py-0.5 rounded-full w-16 text-center shrink-0"
                     :class="devServerStatusClass(ticket.dev_server_status)"
                   >{{ ticket.dev_server_status }}</span>
                   <div class="flex items-center gap-1.5">
@@ -88,7 +88,7 @@
                       @click="doDevAction('start', ticket.id)"
                       :disabled="!canDevStart(ticket) || !!devPending[ticket.id]"
                       title="Start dev server"
-                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed w-16 text-center"
                       :class="canDevStart(ticket) && !devPending[ticket.id]
                         ? 'border-green-300 text-green-700 hover:bg-green-50'
                         : 'border-gray-200 text-gray-400'"
@@ -97,7 +97,7 @@
                       @click="doDevAction('stop', ticket.id)"
                       :disabled="!canDevStop(ticket) || !!devPending[ticket.id]"
                       title="Stop dev server"
-                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed w-16 text-center"
                       :class="canDevStop(ticket) && !devPending[ticket.id]
                         ? 'border-red-300 text-red-700 hover:bg-red-50'
                         : 'border-gray-200 text-gray-400'"
@@ -106,7 +106,7 @@
                       @click="doDevAction('restart', ticket.id)"
                       :disabled="!canDevRestart(ticket) || !!devPending[ticket.id]"
                       title="Restart dev server"
-                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      class="px-2.5 py-1 text-xs rounded-lg border font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed w-16 text-center"
                       :class="canDevRestart(ticket) && !devPending[ticket.id]
                         ? 'border-purple-300 text-purple-700 hover:bg-purple-50'
                         : 'border-gray-200 text-gray-400'"
