@@ -37,7 +37,7 @@
               <div class="flex flex-col gap-1.5 shrink-0">
                 <!-- Container row -->
                 <div class="flex items-center gap-2">
-                  <span class="text-xs font-medium text-gray-500 w-20 text-right shrink-0">Container</span>
+                  <span class="text-xs font-medium text-gray-500 w-20 shrink-0">Container</span>
                   <span
                     class="text-xs font-medium px-2 py-0.5 rounded-full w-16 text-center shrink-0"
                     :class="containerStatusClass(ticket.container_status)"
@@ -78,7 +78,7 @@
 
                 <!-- Dev server row (only if project has dev command) -->
                 <div v-if="group.hasDevCommand" class="flex items-center gap-2">
-                  <span class="text-xs font-medium text-purple-600 w-20 text-right shrink-0">Dev Server</span>
+                  <span class="text-xs font-medium text-purple-600 w-20 shrink-0">Dev Server</span>
                   <span
                     class="text-xs font-medium px-2 py-0.5 rounded-full w-16 text-center shrink-0"
                     :class="devServerStatusClass(ticket.dev_server_status)"
