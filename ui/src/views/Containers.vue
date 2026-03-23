@@ -18,7 +18,6 @@
         <div class="bg-gray-50 border-b border-gray-200 px-4 py-2.5 flex items-center gap-2">
           <span class="font-medium text-gray-800">{{ group.projectName }}</span>
           <span class="text-xs text-gray-400">{{ group.tickets.length }} ticket{{ group.tickets.length !== 1 ? 's' : '' }}</span>
-          <span v-if="group.hasDevCommand" class="text-xs text-purple-500 font-medium ml-auto">dev server</span>
         </div>
 
         <!-- Ticket rows -->
@@ -28,27 +27,22 @@
             :key="ticket.id"
             class="px-4 py-3"
           >
-            <!-- Top row: ticket info + status + container actions -->
-            <div class="flex items-center gap-3">
-              <!-- Ticket info -->
-              <div class="flex-1 min-w-0">
-                <RouterLink
-                  :to="`/tickets/${ticket.id}`"
-                  class="text-sm font-medium text-gray-900 hover:text-blue-600 truncate block"
-                >{{ ticket.title }}</RouterLink>
-                <span class="text-xs text-gray-400 font-mono">{{ ticket.id }}</span>
-              </div>
-
-              <!-- Ticket status -->
+            <!-- Ticket title + status -->
+            <div class="flex items-center gap-2 mb-2">
+              <RouterLink
+                :to="`/tickets/${ticket.id}`"
+                class="text-sm font-medium text-gray-900 hover:text-blue-600 truncate"
+              >{{ ticket.title }}</RouterLink>
               <StatusChip :status="ticket.status" class="shrink-0" />
+            </div>
 
-              <!-- Container status badge -->
+            <!-- Container row -->
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-medium text-gray-500 w-20 shrink-0">Container</span>
               <span
                 class="text-xs font-medium px-2 py-0.5 rounded-full shrink-0"
                 :class="containerStatusClass(ticket.container_status)"
               >{{ ticket.container_status }}</span>
-
-              <!-- Container action buttons -->
               <div class="flex items-center gap-1.5 shrink-0">
                 <button
                   @click="doContainerAction('start', ticket.id)"
@@ -59,7 +53,6 @@
                     ? 'border-green-300 text-green-700 hover:bg-green-50'
                     : 'border-gray-200 text-gray-400'"
                 >{{ pending[ticket.id] === 'start' ? '…' : 'Start' }}</button>
-
                 <button
                   @click="doContainerAction('stop', ticket.id)"
                   :disabled="!canStop(ticket) || !!pending[ticket.id]"
@@ -69,7 +62,6 @@
                     ? 'border-red-300 text-red-700 hover:bg-red-50'
                     : 'border-gray-200 text-gray-400'"
                 >{{ pending[ticket.id] === 'stop' ? '…' : 'Kill' }}</button>
-
                 <button
                   @click="doContainerAction('restart', ticket.id)"
                   :disabled="!canRestart(ticket) || !!pending[ticket.id]"
@@ -80,24 +72,18 @@
                     : 'border-gray-200 text-gray-400'"
                 >{{ pending[ticket.id] === 'restart' ? '…' : 'Restart' }}</button>
               </div>
-
-              <!-- Row error -->
               <span v-if="errors[ticket.id]" class="text-xs text-red-500 shrink-0 max-w-32 truncate" :title="errors[ticket.id]">
                 {{ errors[ticket.id] }}
               </span>
             </div>
 
             <!-- Dev server row (only if project has dev command) -->
-            <div v-if="group.hasDevCommand" class="flex items-center gap-3 mt-2 pl-0">
-              <span class="text-xs text-gray-400 w-16 shrink-0">dev server</span>
-
-              <!-- Dev server status badge -->
+            <div v-if="group.hasDevCommand" class="flex items-center gap-2 mt-1.5">
+              <span class="text-xs font-medium text-purple-600 w-20 shrink-0">Dev Server</span>
               <span
                 class="text-xs font-medium px-2 py-0.5 rounded-full shrink-0"
                 :class="devServerStatusClass(ticket.dev_server_status)"
               >{{ ticket.dev_server_status }}</span>
-
-              <!-- Dev server action buttons -->
               <div class="flex items-center gap-1.5 shrink-0">
                 <button
                   @click="doDevAction('start', ticket.id)"
@@ -108,7 +94,6 @@
                     ? 'border-green-300 text-green-700 hover:bg-green-50'
                     : 'border-gray-200 text-gray-400'"
                 >{{ devPending[ticket.id] === 'start' ? '…' : 'Start' }}</button>
-
                 <button
                   @click="doDevAction('stop', ticket.id)"
                   :disabled="!canDevStop(ticket) || !!devPending[ticket.id]"
@@ -118,7 +103,6 @@
                     ? 'border-red-300 text-red-700 hover:bg-red-50'
                     : 'border-gray-200 text-gray-400'"
                 >{{ devPending[ticket.id] === 'stop' ? '…' : 'Stop' }}</button>
-
                 <button
                   @click="doDevAction('restart', ticket.id)"
                   :disabled="!canDevRestart(ticket) || !!devPending[ticket.id]"
@@ -129,7 +113,6 @@
                     : 'border-gray-200 text-gray-400'"
                 >{{ devPending[ticket.id] === 'restart' ? '…' : 'Restart' }}</button>
               </div>
-
               <span v-if="devErrors[ticket.id]" class="text-xs text-red-500 shrink-0 max-w-32 truncate" :title="devErrors[ticket.id]">
                 {{ devErrors[ticket.id] }}
               </span>
@@ -177,13 +160,15 @@ const groups = computed((): Group[] => {
   return [...byProject.entries()]
     .map(([projectId, ts]) => {
       const project = projectMap.get(projectId)
+      const activeTickets = ts.filter(t => t.status !== 'archived' && t.status !== 'deleted')
       return {
         projectId,
         projectName: project?.name ?? projectId,
         hasDevCommand: !!project?.dev_command,
-        tickets: ts.sort((a, b) => b.created_at - a.created_at),
+        tickets: activeTickets.sort((a, b) => b.created_at - a.created_at),
       }
     })
+    .filter(g => g.tickets.length > 0)
     .sort((a, b) => a.projectName.localeCompare(b.projectName))
 })
 
