@@ -1,11 +1,11 @@
 <template>
   <div class="flex-1 overflow-y-auto px-5 py-4">
-    <div class="flex items-baseline justify-between mb-5">
-      <h1 class="text-xl font-semibold">Projects</h1>
+    <div class="relative">
+      <h1 class="text-xl font-semibold mb-5">Projects</h1>
       <button
         v-if="!showCreate"
         @click="showCreate = true"
-        class="bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+        class="absolute top-0 right-0 bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors font-medium"
       >
         + New Project
       </button>
@@ -112,7 +112,7 @@
         </div>
 
         <!-- Edit form (inline) -->
-        <div v-if="editingId === project.id" class="border-t border-gray-100 px-4 py-3 bg-gray-50">
+        <div v-if="editingId === project.id" class="border-t border-gray-100 px-4 py-3">
           <form @submit.prevent="submitEdit(project.id)" class="flex flex-col gap-3">
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">GitHub Repo</label>
@@ -155,7 +155,7 @@
         </div>
 
         <!-- Read-only detail row (when not editing) -->
-        <div v-else-if="project.dev_command || project.dev_envs || project.db_credential" class="border-t border-gray-100 px-4 py-2 bg-gray-50 flex flex-col gap-1">
+        <div v-else-if="project.dev_command || project.dev_envs || project.db_credential" class="border-t border-gray-100 px-4 py-2 flex flex-col gap-1">
           <div v-if="project.dev_command" class="text-xs text-gray-500">
             <span class="font-medium">Dev:</span> <code class="font-mono">{{ project.dev_command }}</code>
           </div>
