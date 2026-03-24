@@ -226,6 +226,10 @@ async function load() {
 async function doContainerAction(action: 'start' | 'stop' | 'restart', id: string) {
   pending.value[id] = action
   delete errors.value[id]
+  if (action === 'start' || action === 'restart') {
+    const t = tickets.value.find(t => t.id === id)
+    if (t) t.container_status = 'starting'
+  }
   try {
     if (action === 'start') await api.startContainer(id)
     else if (action === 'stop') await api.stopContainer(id)
@@ -233,6 +237,7 @@ async function doContainerAction(action: 'start' | 'stop' | 'restart', id: strin
     await load()
   } catch (err) {
     errors.value[id] = err instanceof Error ? err.message : 'Failed'
+    await load()
   } finally {
     delete pending.value[id]
   }
