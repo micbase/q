@@ -82,11 +82,11 @@
     </div>
 
     <!-- Project list -->
-    <div class="flex flex-col gap-3">
+    <div class="flex flex-col gap-4">
       <div
         v-for="project in projects"
         :key="project.id"
-        class="border border-gray-200 rounded-xl bg-white overflow-hidden"
+        class="border border-gray-200 rounded-xl overflow-hidden"
       >
         <!-- Project header row -->
         <div class="flex items-center gap-3 px-4 py-3">
@@ -94,10 +94,6 @@
             <div class="font-medium text-gray-900 truncate">{{ project.name }}</div>
             <div class="text-xs text-gray-400 truncate">{{ project.github_repo || 'No repo' }}</div>
           </div>
-          <span
-            :class="project.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
-            class="text-xs font-medium px-2 py-0.5 rounded-full shrink-0"
-          >{{ project.status }}</span>
           <button
             v-if="editingId !== project.id"
             @click="startEdit(project)"
