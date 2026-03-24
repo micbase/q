@@ -25,10 +25,11 @@
                 'inline-block w-2 h-2 rounded-full shrink-0',
                 devServerStatus === 'running' ? 'bg-green-500' :
                 devServerStatus === 'starting' ? 'bg-amber-400 animate-pulse' :
+                devServerStatus === 'waiting' ? 'bg-blue-400 animate-pulse' :
                 devServerStatus === 'error' ? 'bg-red-500' :
                 'bg-gray-300'
               ]"></span>
-              <span class="text-xs text-gray-500">{{ devServerStatus }}</span>
+              <span class="text-xs text-gray-500">{{ devServerStatus === 'waiting' ? 'waiting for container' : devServerStatus }}</span>
             </div>
 
             <a
@@ -130,6 +131,7 @@
             'inline-block w-2 h-2 rounded-full',
             devServerStatus === 'running' ? 'bg-green-500' :
             devServerStatus === 'starting' ? 'bg-amber-400 animate-pulse' :
+            devServerStatus === 'waiting' ? 'bg-blue-400 animate-pulse' :
             devServerStatus === 'error' ? 'bg-red-500' :
             'bg-gray-300'
           ]"></span>
@@ -523,7 +525,7 @@ const isRunning = computed(() =>
 )
 
 const isDevServerActive = computed(() =>
-  devServerStatus.value === 'running' || devServerStatus.value === 'starting'
+  devServerStatus.value === 'running' || devServerStatus.value === 'starting' || devServerStatus.value === 'waiting'
 )
 
 const inputDisabled = computed(() => sending.value || isRunning.value)

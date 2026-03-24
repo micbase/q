@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import * as db from '../db/queries'
 import * as provisioner from '../worker/provisioner'
-import { startDevServer, stopDevServer } from '../worker/dev-server'
+import { startDevServer, stopDevServer, setDevServerStatus } from '../worker/dev-server'
 import { worktreePath, ensureWorktree } from '../worker/github'
 import { config } from '../config'
 
@@ -70,6 +70,7 @@ export async function containerRoutes(app: FastifyInstance) {
     const project = await db.getProject(ticket.project_id)
     if (!project) return reply.status(404).send({ error: 'Project not found' })
     if (!project.dev_command) return reply.status(400).send({ error: 'No dev command configured for this project' })
+    await setDevServerStatus(ticket.id, 'waiting')
     await provisioner.ensureRunning(project, ticket.id)
     const containerId = provisioner.getContainerId(ticket.id)
     if (!containerId) return reply.status(409).send({ error: 'Container is not running' })
@@ -102,6 +103,7 @@ export async function containerRoutes(app: FastifyInstance) {
     const project = await db.getProject(ticket.project_id)
     if (!project) return reply.status(404).send({ error: 'Project not found' })
     if (!project.dev_command) return reply.status(400).send({ error: 'No dev command configured for this project' })
+    await setDevServerStatus(ticket.id, 'waiting')
     await provisioner.ensureRunning(project, ticket.id)
     const containerId = provisioner.getContainerId(ticket.id)
     if (!containerId) return reply.status(409).send({ error: 'Container is not running' })

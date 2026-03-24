@@ -180,6 +180,7 @@ function containerStatusClass(status: ContainerStatus): string {
 function devServerStatusClass(status: DevServerStatus): string {
   if (status === 'running') return 'bg-green-100 text-green-700'
   if (status === 'starting') return 'bg-yellow-100 text-yellow-700'
+  if (status === 'waiting') return 'bg-blue-100 text-blue-600'
   if (status === 'error') return 'bg-red-100 text-red-600'
   return 'bg-gray-100 text-gray-500'
 }
@@ -202,7 +203,7 @@ function canDevStart(ticket: Ticket): boolean {
 }
 
 function canDevStop(ticket: Ticket): boolean {
-  return ticket.dev_server_status === 'running' || ticket.dev_server_status === 'starting'
+  return ticket.dev_server_status === 'running' || ticket.dev_server_status === 'starting' || ticket.dev_server_status === 'waiting'
 }
 
 function canDevRestart(ticket: Ticket): boolean {
