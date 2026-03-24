@@ -13,7 +13,7 @@
               <span class="text-gray-300 shrink-0">·</span>
               <PriorityPips :priority="ticket.priority" class="shrink-0" />
               <span class="text-gray-300 shrink-0">·</span>
-              <span class="text-sm text-gray-400 shrink-0">{{ relativeTime(ticket.created_at) }}</span>
+              <span class="text-sm text-gray-400 shrink-0" :title="new Date(ticket.created_at).toLocaleString()">{{ relativeTime(ticket.created_at) }}</span>
             </template>
           </div>
 
@@ -581,12 +581,12 @@ const grouped = computed<GroupedMsg[]>(() => {
 function relativeTime(ms: number): string {
   const diff = Math.max(0, Date.now() - ms)
   const secs = Math.floor(diff / 1000)
-  if (secs < 60) return `${secs}s`
+  if (secs < 60) return `${secs}s ago`
   const mins = Math.floor(secs / 60)
-  if (mins < 60) return `${mins}m`
+  if (mins < 60) return `${mins}m ago`
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h`
-  return `${Math.floor(hrs / 24)}d`
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
 }
 
 function toolTitle(name: string, content: string): string {
