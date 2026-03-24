@@ -1,11 +1,11 @@
 <template>
   <div class="flex-1 overflow-y-auto px-5 py-4">
-    <div class="flex items-center justify-between mb-5">
+    <div class="flex items-baseline justify-between mb-5">
       <h1 class="text-xl font-semibold">Projects</h1>
       <button
         v-if="!showCreate"
         @click="showCreate = true"
-        class="bg-blue-600 text-white text-base px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+        class="bg-blue-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors font-medium"
       >
         + New Project
       </button>
@@ -89,7 +89,7 @@
         class="border border-gray-200 rounded-xl overflow-hidden"
       >
         <!-- Project header row -->
-        <div class="flex items-center gap-3 px-4 py-3">
+        <div class="bg-gray-50 border-b border-gray-200 flex items-center gap-3 px-4 py-2.5">
           <div class="flex-1 min-w-0">
             <div class="font-medium text-gray-900 truncate">{{ project.name }}</div>
             <div class="text-xs text-gray-400 truncate">{{ project.github_repo || 'No repo' }}</div>
