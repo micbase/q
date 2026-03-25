@@ -247,6 +247,10 @@ async function doContainerAction(action: 'start' | 'stop' | 'restart', id: strin
 async function doDevAction(action: 'start' | 'stop' | 'restart', id: string) {
   devPending.value[id] = action
   delete devErrors.value[id]
+  if (action === 'start' || action === 'restart') {
+    const t = tickets.value.find(t => t.id === id)
+    if (t) t.dev_server_status = 'waiting'
+  }
   try {
     if (action === 'start') await api.startDevServer(id)
     else if (action === 'stop') await api.stopDevServer(id)
