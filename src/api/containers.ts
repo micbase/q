@@ -109,6 +109,7 @@ export async function containerRoutes(app: FastifyInstance) {
     if (!containerId) return reply.status(409).send({ error: 'Container is not running' })
     const logTag = provisioner.getContainerTag(ticket.id)
     const workDir = project.github_repo ? await ensureWorktree(containerId, ticket.id, logTag) : '/workspace'
+    await stopDevServer(ticket.id, containerId, logTag)
     await startDevServer(containerId, ticket.id, project.dev_command, workDir, logTag, project.dev_envs)
     return reply.status(204).send()
   })
