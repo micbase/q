@@ -180,22 +180,15 @@ function clearAlertFavicon() {
   setFavicon(FAVICON_DEFAULT)
 }
 
-// Switch to alert favicon when a ticket reaches done or paused
+// Switch to alert favicon only when the tab is not focused
 function onTicketStatusChange(_ticketId: string, ticketStatus: string) {
-  if (ticketStatus === 'done' || ticketStatus === 'paused') {
+  if ((ticketStatus === 'done' || ticketStatus === 'paused') && document.hidden) {
     setFavicon(FAVICON_ALERT)
   }
 }
 
-// Reset alert favicon when user navigates to a ticket detail page (they've seen it)
-watch(() => route.path, (path) => {
-  if (path.startsWith('/tickets/')) {
-    clearAlertFavicon()
-  }
-})
-
+// Reset alert favicon when user returns to the tab
 function onWindowFocus() {
-  // Clear alert when user returns to the tab — they'll see the list update
   clearAlertFavicon()
 }
 // --- End favicon management ---
