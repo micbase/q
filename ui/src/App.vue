@@ -152,7 +152,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from './api'
 import type { Status } from '../../shared/types'
@@ -165,6 +165,40 @@ const mobileDrawerOpen = ref(false)
 const mobileMoreOpen = ref(false)
 let unsubBus: (() => void) | undefined
 let unsubDrawer: (() => void) | undefined
+let unsubTicketStatus: (() => void) | undefined
+
+// --- Favicon management ---
+const FAVICON_DEFAULT = '/favicon.svg'
+const FAVICON_ALERT   = '/favicon-alert.svg'
+
+function setFavicon(href: string) {
+  const el = document.getElementById('favicon') as HTMLLinkElement | null
+  if (el) el.href = href
+}
+
+function clearAlertFavicon() {
+  setFavicon(FAVICON_DEFAULT)
+}
+
+// Switch to alert favicon when a ticket reaches done or paused
+function onTicketStatusChange(_ticketId: string, ticketStatus: string) {
+  if (ticketStatus === 'done' || ticketStatus === 'paused') {
+    setFavicon(FAVICON_ALERT)
+  }
+}
+
+// Reset alert favicon when user navigates to a ticket detail page (they've seen it)
+watch(() => route.path, (path) => {
+  if (path.startsWith('/tickets/')) {
+    clearAlertFavicon()
+  }
+})
+
+function onWindowFocus() {
+  // Clear alert when user returns to the tab — they'll see the list update
+  clearAlertFavicon()
+}
+// --- End favicon management ---
 
 async function loadStatus() {
   try {
@@ -176,11 +210,15 @@ onMounted(() => {
   loadStatus()
   unsubBus = bus.onRefresh(loadStatus)
   unsubDrawer = bus.onOpenDrawer(() => { mobileDrawerOpen.value = true })
+  unsubTicketStatus = bus.onTicketStatus(onTicketStatusChange)
+  window.addEventListener('focus', onWindowFocus)
 })
 
 onUnmounted(() => {
   unsubBus?.()
   unsubDrawer?.()
+  unsubTicketStatus?.()
+  window.removeEventListener('focus', onWindowFocus)
 })
 </script>
 
