@@ -18,6 +18,10 @@ const pids = new Map<string, number>()
 // In-memory map: ticketId → pid file path inside the container
 const pidFiles = new Map<string, string>()
 
+export async function setDevServerStatus(ticketId: string, status: DevServerStatus): Promise<void> {
+  return setStatus(ticketId, status)
+}
+
 async function setStatus(ticketId: string, status: DevServerStatus): Promise<void> {
   await db.updateTicketDevServerStatus(ticketId, status)
   broker.publishStatus({ type: 'DevServerStatusChange', ticket_id: ticketId, dev_server_status: status })
