@@ -35,9 +35,7 @@ export async function startDevServer(
   logTag: string,
   devEnvs?: string,
 ): Promise<void> {
-  await stopDevServer(ticketId, containerId, logTag)
-
-  await setStatus(ticketId, 'starting')
+  await stopDevServer(ticketId, containerId, logTag, true)
 
   const t = `[dev ${logTag}]`
   console.log(`${t} Running in ${workDir}: ${command}`)
@@ -103,7 +101,7 @@ export async function startDevServer(
   duplex.on('error', (err: Error) => { console.error(`${t} Dev server stream error:`, err); onExit('error') })
 }
 
-export async function stopDevServer(ticketId: string, containerId: string, logTag: string): Promise<void> {
+export async function stopDevServer(ticketId: string, containerId: string, logTag: string, silent = false): Promise<void> {
   const pid = pids.get(ticketId) ?? 0
   const pidFile = pidFiles.get(ticketId)
   pids.delete(ticketId)
@@ -133,7 +131,7 @@ export async function stopDevServer(ticketId: string, containerId: string, logTa
     }
   }
 
-  await setStatus(ticketId, 'stopped')
+  if (!silent) await setStatus(ticketId, 'stopped')
 }
 
 /** Clear dev server state when a container is stopped — no kill needed, container is going down */

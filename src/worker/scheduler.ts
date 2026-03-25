@@ -6,7 +6,7 @@ import { callClaude } from './claude-client'
 import { runDrySession, buildInitialPrompt } from './session'
 import { ensureWorktree, maybeCreatePullRequest } from './github'
 import * as provisioner from './provisioner'
-import { startDevServer } from './dev-server'
+import { startDevServer, setDevServerStatus } from './dev-server'
 import * as notify from './notify'
 import { emitMessage, emitTicketStatusChange } from '../broker/emit'
 import { appendLog } from '../logs/log-buffer'
@@ -119,6 +119,7 @@ class Scheduler {
         }
         if (project.dev_command) {
           try {
+            await setDevServerStatus(ticket.id, 'starting')
             await startDevServer(containerId, ticket.id, project.dev_command, workDir ?? '/workspace', logTag, project.dev_envs)
             ticketLog(ticket.id, 'dev server started')
           } catch (err) {
