@@ -214,7 +214,13 @@ function canDevRestart(ticket: Ticket): boolean {
 async function load() {
   try {
     const data = await api.listContainers()
-    tickets.value = data.tickets
+    tickets.value = data.tickets.map(t => ({
+      ...t,
+      container_status: (pending.value[t.id] === 'start' || pending.value[t.id] === 'restart')
+        ? 'starting' as ContainerStatus : t.container_status,
+      dev_server_status: (devPending.value[t.id] === 'start' || devPending.value[t.id] === 'restart')
+        ? 'waiting' as DevServerStatus : t.dev_server_status,
+    }))
     projects.value = data.projects
     loadError.value = ''
   } catch (err) {
