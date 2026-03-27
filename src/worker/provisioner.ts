@@ -5,7 +5,7 @@ import { getDocker, execInContainer, pullImage } from './docker'
 import { broker } from '../broker/broker'
 import { getInstallationToken, cloneRepoIfNeeded, setupGitCredentials, setupGitIdentity, pushWorktree, removeWorktree } from './github'
 import { checkAndArchiveIfMerged } from './merge-watcher'
-import { clearDevServer } from './dev-server'
+import { stopDevServer } from './dev-server'
 import { appendLog } from '../logs/log-buffer'
 
 const LABEL_MANAGED = 'q.managed'
@@ -154,11 +154,12 @@ export async function stopContainer(ticketId: string): Promise<void> {
   const id = entry.id
   containers.delete(ticketId)
   cancelIdleTimer(ticketId)
-  await clearDevServer(ticketId)
 
   console.log(`[provisioner] Stopping container for ticket ${ticketId}`)
   const log = (line: string) => appendLog(ticketId, line)
   try {
+    await stopDevServer(ticketId, id, entry.logTag).catch(err =>
+      console.warn(`[provisioner] Failed to stop dev server for ${ticketId}:`, err))
     await pushWorktree(id, ticketId, entry.logTag, log).catch(err =>
       console.warn(`[provisioner] Failed to push worktree for ${ticketId}:`, err))
     await removeWorktree(id, ticketId, entry.logTag, log).catch(err =>
