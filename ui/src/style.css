@@ -22,3 +22,18 @@
 body {
   @apply bg-gray-50 text-gray-900;
 }
+
+/* Prevent markdown content from causing horizontal page scroll */
+.markdown-body {
+  overflow-x: hidden;
+  word-break: break-word;
+}
+.markdown-body pre {
+  overflow-x: auto;
+  max-width: 100%;
+  white-space: pre;
+  word-break: normal;
+}
+.markdown-body code:not(pre code) {
+  word-break: break-all;
+}
