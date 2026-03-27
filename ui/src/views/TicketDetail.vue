@@ -153,7 +153,7 @@
     <!-- Messages -->
     <div
       ref="scrollEl"
-      class="flex-1 overflow-y-auto flex flex-col gap-3 px-5 py-4"
+      class="flex-1 overflow-y-auto overflow-x-hidden flex flex-col gap-3 px-5 py-4"
     >
       <div v-if="error" class="text-red-600 text-base text-center py-8">{{ error }}</div>
       <div v-else-if="messages.length === 0" class="text-gray-400 text-base text-center py-8">
@@ -220,15 +220,15 @@
                 :new-string="editInput(g.use.content)!.new_string"
                 :file-path="editInput(g.use.content)!.file_path"
               />
-              <div v-if="g.result?.is_error" class="px-3 py-2 font-mono text-xs whitespace-pre-wrap max-h-96 overflow-y-auto border-t border-gray-300 bg-red-50 text-red-800">{{ g.result.content }}</div>
+              <div v-if="g.result?.is_error" class="px-3 py-2 font-mono text-xs whitespace-pre-wrap break-all max-h-96 overflow-y-auto border-t border-gray-300 bg-red-50 text-red-800">{{ g.result.content }}</div>
             </template>
 
             <!-- Expanded: tool input (non-Edit) -->
             <template v-else-if="expanded.has(g.idx) && g.use?.tool_name && isExpandable(g.use.tool_name)">
               <div v-if="toolBody(g.use.tool_name, g.use.content)"
-                class="px-3 py-2 font-mono text-xs text-blue-900 whitespace-pre-wrap max-h-64 overflow-y-auto bg-blue-50 border-t border-gray-300">{{ toolBody(g.use.tool_name, g.use.content) }}</div>
+                class="px-3 py-2 font-mono text-xs text-blue-900 whitespace-pre-wrap break-all max-h-64 overflow-y-auto bg-blue-50 border-t border-gray-300">{{ toolBody(g.use.tool_name, g.use.content) }}</div>
               <div v-if="g.result && isExpandable(g.use.tool_name)" :class="[
-                'px-3 py-2 font-mono text-xs whitespace-pre-wrap max-h-96 overflow-y-auto border-t border-gray-300',
+                'px-3 py-2 font-mono text-xs whitespace-pre-wrap break-all max-h-96 overflow-y-auto border-t border-gray-300',
                 g.result.is_error ? 'bg-red-50 text-red-800' : 'bg-gray-50 text-gray-700'
               ]">{{ g.result.content }}</div>
             </template>
