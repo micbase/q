@@ -110,6 +110,7 @@ export async function ticketRoutes(app: FastifyInstance) {
         reply.status(409).send({ error: 'Ticket is already deleted' }); return
       }
       await db.deleteTicket(req.params.id, tx)
+      await emitTicketStatusChange(req.params.id, 'deleted', undefined, tx)
       reply.status(204).send()
     })
   })
