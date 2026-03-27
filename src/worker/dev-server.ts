@@ -131,10 +131,3 @@ export async function stopDevServer(ticketId: string, containerId: string, logTa
 
   await setStatus(ticketId, 'stopped')
 }
-
-/** Clear dev server state when a container is stopped — no kill needed, container is going down */
-export async function clearDevServer(ticketId: string): Promise<void> {
-  pids.delete(ticketId)
-  pidFiles.delete(ticketId)
-  await setStatus(ticketId, 'stopped')
-}

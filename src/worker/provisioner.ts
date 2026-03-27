@@ -5,7 +5,7 @@ import { getDocker, execInContainer, pullImage } from './docker'
 import { broker } from '../broker/broker'
 import { getInstallationToken, cloneRepoIfNeeded, setupGitCredentials, setupGitIdentity, pushWorktree, removeWorktree } from './github'
 import { checkAndArchiveIfMerged } from './merge-watcher'
-import { stopDevServer, clearDevServer } from './dev-server'
+import { stopDevServer } from './dev-server'
 import { appendLog } from '../logs/log-buffer'
 
 const LABEL_MANAGED = 'q.managed'
