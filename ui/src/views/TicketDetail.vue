@@ -755,6 +755,7 @@ async function archiveTicket() {
   try {
     await api.archiveTicket(props.id)
     bus.refresh()
+    await router.push('/')
   } catch { /* ignore */ } finally {
     archiving.value = false
     archiveConfirmOpen.value = false
