@@ -81,7 +81,7 @@
                   class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40"
                 >Start server</button>
                 <button
-                  v-if="ticketStatus === 'done'"
+                  v-if="ticketStatus === 'done' || ticketStatus === 'failed'"
                   @click="archiveConfirmOpen = true; desktopMenuOpen = false"
                   class="w-full text-left px-4 py-2 text-sm text-purple-700 hover:bg-purple-50"
                 >Archive ticket</button>
@@ -341,7 +341,7 @@
               class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-gray-800 hover:bg-gray-50 disabled:opacity-40"
             >Start server</button>
             <button
-              v-if="ticketStatus === 'done'"
+              v-if="ticketStatus === 'done' || ticketStatus === 'failed'"
               @click="archiveConfirmOpen = true; mobileSheetOpen = false"
               class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-purple-700 hover:bg-purple-50"
             >Archive ticket</button>
