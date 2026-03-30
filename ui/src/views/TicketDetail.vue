@@ -162,14 +162,14 @@
 
       <template v-for="(g, gi) in grouped" :key="gi">
         <!-- User message -->
-        <div v-if="g.kind === 'msg' && g.msg!.message_type === 'text' && g.msg!.role === 'user'" class="flex justify-end">
-          <div class="bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-2 max-w-xs text-base whitespace-pre-wrap">
+        <div v-if="g.kind === 'msg' && g.msg!.message_type === 'text' && g.msg!.role === 'user'" class="flex justify-end pl-16">
+          <div class="bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-2 w-full text-base whitespace-pre-wrap">
             {{ g.msg!.content }}
           </div>
         </div>
 
         <!-- Assistant text -->
-        <div v-else-if="g.kind === 'msg' && g.msg!.message_type === 'text'" class="flex justify-start">
+        <div v-else-if="g.kind === 'msg' && g.msg!.message_type === 'text'" class="flex justify-start pr-16">
           <div class="bg-amber-50 border border-amber-200 rounded-2xl rounded-tl-sm px-4 py-2 max-w-full w-full text-base text-gray-800 markdown-body" v-html="renderMarkdown(g.msg!.content)"></div>
         </div>
 
