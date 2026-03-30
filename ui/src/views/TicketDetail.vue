@@ -170,12 +170,12 @@
 
         <!-- Assistant text -->
         <div v-else-if="g.kind === 'msg' && g.msg!.message_type === 'text'" class="flex justify-start pr-16">
-          <div class="bg-amber-50 border border-amber-200 rounded-2xl rounded-tl-sm px-4 py-2 max-w-full w-full text-base text-gray-800 markdown-body" v-html="renderMarkdown(g.msg!.content)"></div>
+          <div class="bg-amber-50 border border-amber-200 rounded-2xl rounded-tl-sm px-4 py-2 text-base text-gray-800 markdown-body" v-html="renderMarkdown(g.msg!.content)"></div>
         </div>
 
         <!-- Thinking -->
         <div v-else-if="g.kind === 'msg' && g.msg!.message_type === 'thinking'" class="flex justify-start pr-16">
-          <div class="border border-purple-200 rounded-lg text-sm overflow-hidden max-w-full w-full">
+          <div class="border border-purple-200 rounded-lg text-sm overflow-hidden">
             <div
               @click="toggleExpanded(g.idx)"
               class="flex items-center gap-2 px-3 py-1.5 w-full text-left bg-purple-50 cursor-pointer hover:bg-purple-100"
@@ -190,7 +190,7 @@
         <!-- Tool call + result pair -->
         <div v-else-if="g.kind === 'tool_pair'" class="flex justify-start pr-16">
           <div :class="[
-            'border rounded-lg text-sm overflow-hidden max-w-full w-full',
+            'border rounded-lg text-sm overflow-hidden',
             g.result?.is_error ? 'border-red-300' : 'border-gray-300'
           ]">
             <!-- Tool use header -->
@@ -237,7 +237,7 @@
 
         <!-- Read group -->
         <div v-else-if="g.kind === 'read_group'" class="flex justify-start pr-16">
-          <div class="border border-gray-300 rounded-lg text-sm overflow-hidden max-w-full w-full">
+          <div class="border border-gray-300 rounded-lg text-sm overflow-hidden">
             <div
               @click="g.reads!.length > 1 && toggleExpanded(g.idx)"
               :class="['flex items-center gap-2 px-3 py-1.5 w-full text-left bg-gray-100', g.reads!.length > 1 ? 'cursor-pointer hover:bg-gray-200' : '']"
@@ -267,7 +267,7 @@
 
         <!-- Error -->
         <div v-else-if="g.kind === 'msg' && g.msg!.message_type === 'error'" class="flex justify-start pr-16">
-          <div class="bg-red-50 border border-red-200 rounded-lg px-4 py-2 max-w-full w-full text-base text-red-700 whitespace-pre-wrap">
+          <div class="bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-base text-red-700 whitespace-pre-wrap">
             {{ g.msg!.content }}
           </div>
         </div>
