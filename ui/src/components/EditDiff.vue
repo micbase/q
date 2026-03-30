@@ -28,7 +28,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { diffLines } from 'diff'
+import { diffLines as computeLineDiff } from 'diff'
 import hljs from 'highlight.js/lib/core'
 
 // Register common languages
@@ -115,7 +115,7 @@ const diffLines = computed<DiffLine[]>(() => {
   const CONTEXT = 3
 
   // Each chunk: { value: string, added?: bool, removed?: bool }
-  const chunks = diffLines(props.oldString, props.newString)
+  const chunks = computeLineDiff(props.oldString, props.newString)
 
   // Expand chunks into per-line ops
   type Op = { type: 'context' | 'remove' | 'add'; text: string }
