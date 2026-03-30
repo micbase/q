@@ -1,7 +1,6 @@
 import { createApp, defineComponent, h } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import App from './App.vue'
-import NewTicket from './views/NewTicket.vue'
 import TicketDetail from './views/TicketDetail.vue'
 import Projects from './views/Projects.vue'
 import Containers from './views/Containers.vue'
@@ -15,7 +14,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', component: EmptyState },
-    { path: '/new', component: NewTicket },
+    { path: '/new', component: EmptyState },
     { path: '/projects', component: Projects },
     { path: '/containers', component: Containers },
     { path: '/tickets/:id', component: TicketDetail, props: true },
