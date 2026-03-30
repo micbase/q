@@ -390,7 +390,7 @@
             </div>
           </div>
           <!-- Log lines -->
-          <div ref="logsScrollEl" class="flex-1 min-h-0 overflow-y-auto px-4 py-3 font-mono text-xs leading-relaxed">
+          <div ref="logsScrollEl" class="flex-1 min-h-0 overflow-y-auto px-4 py-3 font-mono text-xs leading-relaxed" @scroll="onLogsScroll">
             <div v-if="logLines.length === 0" class="text-gray-500 text-center py-8">No logs yet.</div>
             <div v-for="(line, i) in logLines" :key="i" class="whitespace-pre-wrap break-all text-gray-300">{{ line }}</div>
           </div>
@@ -507,6 +507,7 @@ const logsOpen = ref(false)
 const logLines = ref<string[]>([])
 const copyLabel = ref('Copy')
 const logsScrollEl = ref<HTMLElement | null>(null)
+const logsAutoScroll = ref(true)
 let logsPollHandle: ReturnType<typeof setInterval> | null = null
 const archiveConfirmOpen = ref(false)
 const archiving = ref(false)
@@ -671,12 +672,18 @@ function scrollToBottom() {
   })
 }
 
+function onLogsScroll() {
+  if (!logsScrollEl.value) return
+  const el = logsScrollEl.value
+  logsAutoScroll.value = el.scrollHeight - el.scrollTop - el.clientHeight < 8
+}
+
 async function fetchLogs() {
   try {
     const data = await api.getLogs(props.id)
     logLines.value = data.lines
     nextTick(() => {
-      if (logsScrollEl.value) {
+      if (logsScrollEl.value && logsAutoScroll.value) {
         logsScrollEl.value.scrollTop = logsScrollEl.value.scrollHeight
       }
     })
@@ -685,6 +692,7 @@ async function fetchLogs() {
 
 function openLogs() {
   logsOpen.value = true
+  logsAutoScroll.value = true
   fetchLogs()
 }
 
