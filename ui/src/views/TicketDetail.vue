@@ -174,7 +174,7 @@
         </div>
 
         <!-- Thinking -->
-        <div v-else-if="g.kind === 'msg' && g.msg!.message_type === 'thinking'" class="flex justify-start">
+        <div v-else-if="g.kind === 'msg' && g.msg!.message_type === 'thinking'" class="flex justify-start pr-16">
           <div class="border border-purple-200 rounded-lg text-sm overflow-hidden max-w-full w-full">
             <div
               @click="toggleExpanded(g.idx)"
@@ -188,7 +188,7 @@
         </div>
 
         <!-- Tool call + result pair -->
-        <div v-else-if="g.kind === 'tool_pair'" class="flex justify-start">
+        <div v-else-if="g.kind === 'tool_pair'" class="flex justify-start pr-16">
           <div :class="[
             'border rounded-lg text-sm overflow-hidden max-w-full w-full',
             g.result?.is_error ? 'border-red-300' : 'border-gray-300'
@@ -236,7 +236,7 @@
         </div>
 
         <!-- Read group -->
-        <div v-else-if="g.kind === 'read_group'" class="flex justify-start">
+        <div v-else-if="g.kind === 'read_group'" class="flex justify-start pr-16">
           <div class="border border-gray-300 rounded-lg text-sm overflow-hidden max-w-full w-full">
             <div
               @click="g.reads!.length > 1 && toggleExpanded(g.idx)"
@@ -266,7 +266,7 @@
         </div>
 
         <!-- Error -->
-        <div v-else-if="g.kind === 'msg' && g.msg!.message_type === 'error'" class="flex justify-start">
+        <div v-else-if="g.kind === 'msg' && g.msg!.message_type === 'error'" class="flex justify-start pr-16">
           <div class="bg-red-50 border border-red-200 rounded-lg px-4 py-2 max-w-full w-full text-base text-red-700 whitespace-pre-wrap">
             {{ g.msg!.content }}
           </div>
