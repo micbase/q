@@ -49,6 +49,30 @@
       </main>
     </div>
 
+    <!-- New Ticket Modal -->
+    <Transition name="modal">
+      <div v-if="route.path === '/new'" class="fixed inset-0 z-50 flex items-center justify-center md:p-6" @click.self="closeNewTicket">
+        <!-- Backdrop (desktop only — on mobile we go full screen) -->
+        <div class="hidden md:block absolute inset-0 bg-black/50" @click="closeNewTicket"></div>
+        <!-- Panel -->
+        <div class="relative flex flex-col bg-white w-full h-full md:h-auto md:max-h-[90vh] md:rounded-2xl md:shadow-2xl md:max-w-[72rem] overflow-hidden">
+          <!-- Modal header -->
+          <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
+            <h1 class="text-xl font-semibold">New Ticket</h1>
+            <button @click="closeNewTicket" class="text-gray-400 hover:text-gray-700 p-1 rounded-lg transition-colors" aria-label="Close">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <!-- Modal body -->
+          <div class="flex-1 overflow-y-auto">
+            <NewTicketForm @created="onTicketCreated" />
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Mobile bottom nav -->
     <nav class="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-30 flex items-stretch" style="height: calc(4rem + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);">
       <!-- Tickets -->
@@ -152,15 +176,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { api } from './api'
 import type { Status } from '../../shared/types'
 import { bus } from './bus'
 import ProjectTree from './components/ProjectTree.vue'
+import NewTicketForm from './components/NewTicketForm.vue'
 
 const status = ref<Status | null>(null)
 const route = useRoute()
+const router = useRouter()
 const mobileDrawerOpen = ref(false)
 const mobileMoreOpen = ref(false)
 let unsubBus: (() => void) | undefined
@@ -192,6 +218,14 @@ function onWindowFocus() {
   clearAlertFavicon()
 }
 // --- End favicon management ---
+
+function closeNewTicket() {
+  router.back()
+}
+
+function onTicketCreated(ticketId: string) {
+  router.push(`/tickets/${ticketId}`)
+}
 
 async function loadStatus() {
   try {
@@ -228,6 +262,13 @@ onUnmounted(() => {
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.15s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.modal-enter-active { transition: opacity 0.15s ease; }
+.modal-leave-active { transition: opacity 0.1s ease; }
+.modal-enter-from, .modal-leave-to { opacity: 0; }
+.modal-enter-active .relative, .modal-leave-active .relative { transition: transform 0.2s ease, opacity 0.15s ease; }
+.modal-enter-from .relative { transform: scale(0.97); opacity: 0; }
+.modal-leave-to .relative { transform: scale(0.97); opacity: 0; }
 
 .drawer-enter-active { transition: opacity 0.2s ease; }
 .drawer-leave-active { transition: opacity 0.2s ease; }
