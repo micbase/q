@@ -163,7 +163,7 @@
       <template v-for="(g, gi) in grouped" :key="gi">
         <!-- User message -->
         <div v-if="g.kind === 'msg' && g.msg!.message_type === 'text' && g.msg!.role === 'user'" class="flex justify-end pl-16">
-          <div class="bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-2 w-full text-base whitespace-pre-wrap text-right">
+          <div class="bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-2 text-base whitespace-pre-wrap text-right">
             {{ g.msg!.content }}
           </div>
         </div>
