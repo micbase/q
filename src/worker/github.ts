@@ -342,6 +342,56 @@ export async function checkPRMerged(repo: string, ticketId: string): Promise<boo
   return pulls.length > 0 && pulls[0].merged_at !== null
 }
 
+/**
+ * Close an open pull request for the ticket's branch (q/{ticketId}) if one exists.
+ * No-op if no open PR is found or GitHub App credentials are not configured.
+ */
+export async function closePullRequest(repo: string, ticketId: string): Promise<void> {
+  if (!config.githubAppId || !config.githubPrivateKey) return
+
+  let token: string
+  try {
+    token = await getInstallationToken(repo, { pull_requests: 'write' })
+  } catch {
+    return
+  }
+
+  const branch = `q/${ticketId}`
+  const [owner] = repo.split('/')
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'Content-Type': 'application/json',
+  }
+
+  // Find open PR for this branch
+  const listRes = await fetch(
+    `https://api.github.com/repos/${repo}/pulls?state=open&head=${owner}:${branch}&per_page=1`,
+    { headers },
+  )
+  if (!listRes.ok) return
+
+  const pulls = await listRes.json() as Array<{ number: number }>
+  if (pulls.length === 0) return
+
+  const prNumber = pulls[0].number
+
+  // Close the PR
+  const closeRes = await fetch(`https://api.github.com/repos/${repo}/pulls/${prNumber}`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ state: 'closed' }),
+  })
+
+  if (closeRes.ok) {
+    console.log(`[github] Closed PR #${prNumber} for ${branch}`)
+  } else {
+    const errBody = await closeRes.text()
+    console.warn(`[github] Failed to close PR #${prNumber}: ${closeRes.status} ${errBody}`)
+  }
+}
+
 /** Remove a ticket's worktree */
 export async function removeWorktree(containerId: string, ticketId: string, logTag: string, log?: (line: string) => void): Promise<void> {
   const wt = worktreePath(ticketId)

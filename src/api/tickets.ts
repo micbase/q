@@ -1,8 +1,10 @@
 import type { FastifyInstance } from 'fastify'
+import type { Ticket } from '../../shared/types'
 import * as db from '../db/queries'
 import { withTransaction } from '../db/connection'
 import { emitMessage, emitTicketStatusChange } from '../broker/emit'
 import { getLogs } from '../logs/log-buffer'
+import { closePullRequest } from '../worker/github'
 
 interface CreateTicketBody {
   project_id: string
@@ -89,13 +91,26 @@ export async function ticketRoutes(app: FastifyInstance) {
 
   // POST /api/tickets/:id/archive — mark ticket as archived (PR merged)
   app.post<{ Params: TicketParams }>('/tickets/:id/archive', async (req, reply) => {
+    let archived: Ticket | null = null
     await withTransaction(async (tx) => {
       const ticket = await db.getTicket(req.params.id, tx)
       if (!ticket) { reply.status(404).send({ error: 'Not found' }); return }
+      archived = ticket
       await db.archiveTicket(req.params.id, tx)
       await emitTicketStatusChange(req.params.id, 'archived', undefined, tx)
       reply.status(204).send()
     })
+
+    // Close open PR if the ticket has one
+    const t = archived as Ticket | null
+    if (t?.pr_url) {
+      const project = await db.getProject(t.project_id)
+      if (project?.github_repo) {
+        closePullRequest(project.github_repo, t.id).catch(err =>
+          console.warn(`[tickets] Failed to close PR for ${t.id}:`, err)
+        )
+      }
+    }
   })
 
   // DELETE /api/tickets/:id — soft delete (sets status to cancelled)
