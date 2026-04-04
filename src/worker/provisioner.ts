@@ -11,6 +11,7 @@ import { appendLog } from '../logs/log-buffer'
 const LABEL_MANAGED = 'q.managed'
 
 const TOKEN_MAX_AGE_MS = 55 * 60 * 1000 // refresh credentials before 1h expiry
+const MERGE_CHECK_INTERVAL_MS = 15 * 60 * 1000 // check PR merge status every 15 minutes
 
 interface ContainerEntry { id: string; logTag: string; credentialsAt?: number; ip?: string }
 
@@ -18,6 +19,8 @@ interface ContainerEntry { id: string; logTag: string; credentialsAt?: number; i
 const containers = new Map<string, ContainerEntry>()
 // Idle timers: ticketId → timer handle
 const idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
+// Merge check intervals: ticketId → interval handle
+const mergeCheckIntervals = new Map<string, ReturnType<typeof setInterval>>()
 
 async function setContainerStatus(ticketId: string, status: ContainerStatus): Promise<void> {
   await db.updateTicketContainerStatus(ticketId, status)
@@ -118,6 +121,10 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
   containers.set(ticketId, entry)
   await setContainerStatus(ticketId, 'running')
 
+  if (config.githubAppId && project.github_repo) {
+    startMergeCheckInterval(ticketId, project.github_repo)
+  }
+
   console.log(`[provisioner] Container started for ticket ${ticketId} (${id.slice(0, 12)})`)
 
   return id
@@ -145,6 +152,31 @@ function cancelIdleTimer(ticketId: string): void {
   }
 }
 
+// ─── Merge check interval ─────────────────────────────────────────────────────
+
+function startMergeCheckInterval(ticketId: string, githubRepo: string): void {
+  if (mergeCheckIntervals.has(ticketId)) return
+  const interval = setInterval(async () => {
+    try {
+      const ticket = await db.getTicket(ticketId)
+      if (!ticket || ticket.status !== 'done') return
+      await checkAndArchiveIfMerged(ticketId, githubRepo)
+    } catch (err) {
+      console.error(`[provisioner] Merge check interval error for ${ticketId}:`, err)
+    }
+  }, MERGE_CHECK_INTERVAL_MS)
+  mergeCheckIntervals.set(ticketId, interval)
+  console.log(`[provisioner] Started merge check interval for ticket ${ticketId}`)
+}
+
+function cancelMergeCheckInterval(ticketId: string): void {
+  const interval = mergeCheckIntervals.get(ticketId)
+  if (interval) {
+    clearInterval(interval)
+    mergeCheckIntervals.delete(ticketId)
+  }
+}
+
 // ─── Stop ─────────────────────────────────────────────────────────────────────
 
 export async function stopContainer(ticketId: string): Promise<void> {
@@ -154,6 +186,7 @@ export async function stopContainer(ticketId: string): Promise<void> {
   const id = entry.id
   containers.delete(ticketId)
   cancelIdleTimer(ticketId)
+  cancelMergeCheckInterval(ticketId)
 
   console.log(`[provisioner] Stopping container for ticket ${ticketId}`)
   const log = (line: string) => appendLog(ticketId, line)
@@ -201,5 +234,7 @@ export async function stopAll(): Promise<void> {
     }
   }))
   containers.clear()
+  for (const interval of mergeCheckIntervals.values()) clearInterval(interval)
+  mergeCheckIntervals.clear()
   await db.resetAllContainerStatuses()
 }
