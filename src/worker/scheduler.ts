@@ -104,7 +104,8 @@ class Scheduler {
       } else {
         project = await db.getProject(ticket.project_id)
         if (!project) throw new Error(`Project ${ticket.project_id} not found`)
-        containerId = await provisioner.ensureRunning(project, ticket.id)
+        const { id: cid, isNew: isNewContainer } = await provisioner.ensureRunning(project, ticket.id)
+        containerId = cid
         logTag = provisioner.getContainerTag(ticket.id)
         ticketLog(ticket.id, `container ready: ${containerId.slice(0, 12)}`)
         let workDir: string | undefined
@@ -117,7 +118,7 @@ class Scheduler {
             throw err
           }
         }
-        if (project.dev_command) {
+        if (project.dev_command && isNewContainer) {
           try {
             await startDevServer(containerId, ticket.id, project.dev_command, workDir ?? '/workspace', logTag, project.dev_envs)
             ticketLog(ticket.id, 'dev server started')
