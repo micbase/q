@@ -69,12 +69,12 @@ export function getContainerId(ticketId: string): string | undefined {
 
 // ─── Ensure running ───────────────────────────────────────────────────────────
 
-export async function ensureRunning(project: Project, ticketId: string): Promise<string> {
+export async function ensureRunning(project: Project, ticketId: string): Promise<{ id: string; isNew: boolean }> {
   const existing = containers.get(ticketId)
   if (existing) {
     cancelIdleTimer(ticketId)
     await refreshCredentials(existing, project, ticketId)
-    return existing.id
+    return { id: existing.id, isNew: false }
   }
 
   console.log(`[provisioner] Starting container for ticket ${ticketId} (project ${project.name})`)
@@ -127,7 +127,7 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
 
   console.log(`[provisioner] Container started for ticket ${ticketId} (${id.slice(0, 12)})`)
 
-  return id
+  return { id, isNew: true }
 }
 
 // ─── Idle shutdown ────────────────────────────────────────────────────────────
