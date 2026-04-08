@@ -1,7 +1,7 @@
 export type TicketStatus = 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'deleted' | 'archived'
 export type ProjectStatus = 'active' | 'archived' | 'deleted'
 export type ContainerStatus = 'stopped' | 'starting' | 'running'
-export type DevServerStatus = 'stopped' | 'starting' | 'running' | 'error'
+export type DevServerStatus = 'stopped' | 'waiting' | 'starting' | 'running' | 'error'
 
 // Message classification stored in DB
 export type MessageType = 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'done' | 'paused' | 'error'

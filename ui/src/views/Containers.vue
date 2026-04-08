@@ -180,6 +180,7 @@ function containerStatusClass(status: ContainerStatus): string {
 function devServerStatusClass(status: DevServerStatus): string {
   if (status === 'running') return 'bg-green-100 text-green-700'
   if (status === 'starting') return 'bg-yellow-100 text-yellow-700'
+  if (status === 'waiting') return 'bg-blue-100 text-blue-600'
   if (status === 'error') return 'bg-red-100 text-red-600'
   return 'bg-gray-100 text-gray-500'
 }
@@ -202,7 +203,7 @@ function canDevStart(ticket: Ticket): boolean {
 }
 
 function canDevStop(ticket: Ticket): boolean {
-  return ticket.dev_server_status === 'running' || ticket.dev_server_status === 'starting'
+  return ticket.dev_server_status === 'running' || ticket.dev_server_status === 'starting' || ticket.dev_server_status === 'waiting'
 }
 
 function canDevRestart(ticket: Ticket): boolean {
@@ -213,7 +214,13 @@ function canDevRestart(ticket: Ticket): boolean {
 async function load() {
   try {
     const data = await api.listContainers()
-    tickets.value = data.tickets
+    tickets.value = data.tickets.map(t => ({
+      ...t,
+      container_status: (pending.value[t.id] === 'start' || pending.value[t.id] === 'restart')
+        ? 'starting' as ContainerStatus : t.container_status,
+      dev_server_status: (devPending.value[t.id] === 'start' || devPending.value[t.id] === 'restart')
+        ? 'waiting' as DevServerStatus : t.dev_server_status,
+    }))
     projects.value = data.projects
     loadError.value = ''
   } catch (err) {
@@ -226,6 +233,10 @@ async function load() {
 async function doContainerAction(action: 'start' | 'stop' | 'restart', id: string) {
   pending.value[id] = action
   delete errors.value[id]
+  if (action === 'start' || action === 'restart') {
+    const t = tickets.value.find(t => t.id === id)
+    if (t) t.container_status = 'starting'
+  }
   try {
     if (action === 'start') await api.startContainer(id)
     else if (action === 'stop') await api.stopContainer(id)
@@ -233,6 +244,7 @@ async function doContainerAction(action: 'start' | 'stop' | 'restart', id: strin
     await load()
   } catch (err) {
     errors.value[id] = err instanceof Error ? err.message : 'Failed'
+    await load()
   } finally {
     delete pending.value[id]
   }
@@ -241,6 +253,10 @@ async function doContainerAction(action: 'start' | 'stop' | 'restart', id: strin
 async function doDevAction(action: 'start' | 'stop' | 'restart', id: string) {
   devPending.value[id] = action
   delete devErrors.value[id]
+  if (action === 'start' || action === 'restart') {
+    const t = tickets.value.find(t => t.id === id)
+    if (t) t.dev_server_status = 'waiting'
+  }
   try {
     if (action === 'start') await api.startDevServer(id)
     else if (action === 'stop') await api.stopDevServer(id)
