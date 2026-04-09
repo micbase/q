@@ -30,8 +30,8 @@ export async function messageRoutes(app: FastifyInstance) {
     await withTransaction(async (tx) => {
       const ticket = await db.getTicket(req.params.id, tx)
       if (!ticket) { reply.status(404).send({ error: 'Not found' }); return }
-      if (ticket.status !== 'paused' && ticket.status !== 'done') {
-        reply.status(409).send({ error: 'Ticket is not paused or done' }); return
+      if (ticket.status !== 'paused' && ticket.status !== 'done' && ticket.status !== 'failed') {
+        reply.status(409).send({ error: 'Ticket is not paused, done, or failed' }); return
       }
 
       await emitMessage(req.params.id, content, 'text', 'user', {}, tx)
