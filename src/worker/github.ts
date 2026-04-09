@@ -165,7 +165,15 @@ export async function ensureWorktree(containerId: string, ticketId: string, logT
     console.log(`${t} Recreated worktree for ${branch} from remote`)
     log?.(`recreated worktree for ${branch} from remote`)
   } else {
-    // New ticket: determine default branch and create worktree from it
+    // New ticket (or restarted container where branch was never pushed):
+    // prune stale worktree metadata and delete local branch if present,
+    // then create worktree from default branch.
+    await execInContainer(containerId, [
+      'git', '-C', '/workspace', 'worktree', 'prune',
+    ], logTag)
+    await execInContainer(containerId, [
+      'git', '-C', '/workspace', 'branch', '-D', branch,
+    ], logTag).catch(() => { /* branch may not exist yet — that's fine */ })
     const defaultBranch = await execInContainer(containerId, [
       'git', '-C', '/workspace', 'symbolic-ref', 'refs/remotes/origin/HEAD',
     ], logTag).then(
