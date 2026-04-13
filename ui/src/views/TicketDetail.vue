@@ -81,7 +81,7 @@
                   class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40"
                 >Start server</button>
                 <button
-                  v-if="ticketStatus === 'done' || ticketStatus === 'failed'"
+                  v-if="ticketStatus !== 'archived' && ticketStatus !== 'deleted'"
                   @click="archiveConfirmOpen = true; desktopMenuOpen = false"
                   class="w-full text-left px-4 py-2 text-sm text-purple-700 hover:bg-purple-50"
                 >Archive ticket</button>
@@ -341,7 +341,7 @@
               class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-gray-800 hover:bg-gray-50 disabled:opacity-40"
             >Start server</button>
             <button
-              v-if="ticketStatus === 'done' || ticketStatus === 'failed'"
+              v-if="ticketStatus !== 'archived' && ticketStatus !== 'deleted'"
               @click="archiveConfirmOpen = true; mobileSheetOpen = false"
               class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-purple-700 hover:bg-purple-50"
             >Archive ticket</button>
@@ -404,7 +404,7 @@
         <div class="absolute inset-0 bg-black/40" @click="archiveConfirmOpen = false"></div>
         <div class="relative bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
           <h2 class="text-base font-semibold text-gray-900 mb-1">Archive ticket?</h2>
-          <p class="text-sm text-gray-500 mb-5">Mark this ticket as archived — the change has been merged and the ticket is complete.</p>
+          <p class="text-sm text-gray-500 mb-5">Mark this ticket as archived.</p>
           <div class="flex gap-3 justify-end">
             <button
               @click="archiveConfirmOpen = false"
