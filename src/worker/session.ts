@@ -14,7 +14,7 @@ You are already on git branch q/${ticket.id}. For this task:
 - Do not ask multiple questions at once
 - Do not ask for permission — just act`
 
-  return `${system}\n\n${ticket.description}`
+  return `${system}\n\n${ticket.title}\n\n${ticket.description}`
 }
 
 // ─── Question heuristic ───────────────────────────────────────────────────────
