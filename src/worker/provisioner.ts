@@ -1,3 +1,4 @@
+import { existsSync, writeFileSync } from 'fs'
 import { config } from '../config'
 import * as db from '../db/queries'
 import type { Project, ContainerStatus } from '../../shared/types'
@@ -84,6 +85,11 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
 
   await pullImage(config.projectImage)
 
+  const sharedSettingsPath = `${config.sessionsDir}/settings.json`
+  if (!existsSync(sharedSettingsPath)) {
+    writeFileSync(sharedSettingsPath, '{}')
+  }
+
   const { HostConfig: extraHostConfig, ...extraOpts } = config.dockerRunOptions
   const container = await getDocker().createContainer({
     Image: config.projectImage,
@@ -93,6 +99,7 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
         `${config.projectsDir}/${project.name}:/workspace`,
         `${config.sessionsDir}/${ticketId}:/home/${config.containerUser}/.claude`,
         `${config.sessionsDir}/.credentials.json:/home/${config.containerUser}/.claude/.credentials.json`,
+        `${sharedSettingsPath}:/home/${config.containerUser}/.claude/settings.json`,
       ],
       ...extraHostConfig,
     },
@@ -106,8 +113,8 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
   const logTag = `${project.name} ${ticketId} ${id.slice(0, 12)}`
 
   const user = config.containerUser
-  // Bind-mounted dirs are owned by host UID — chown mount points (not recursive) so container user can write
-  await execInContainer(id, ['chown', `${user}:${user}`, '/workspace', `/home/${user}/.claude`], logTag, { User: 'root' })
+  // Bind-mounted dirs/files are owned by host UID — chown mount points so container user can write
+  await execInContainer(id, ['chown', `${user}:${user}`, '/workspace', `/home/${user}/.claude`, `/home/${user}/.claude/settings.json`], logTag, { User: 'root' })
 
   await setupGitIdentity(id, logTag, log)
   await execInContainer(id, ['git', 'config', '--global', '--add', 'safe.directory', '*'], logTag)
