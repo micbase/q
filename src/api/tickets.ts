@@ -5,17 +5,20 @@ import { withTransaction } from '../db/connection'
 import { emitMessage, emitTicketStatusChange } from '../broker/emit'
 import { getLogs } from '../logs/log-buffer'
 import { closePullRequest } from '../worker/github'
+import { normalizeModel } from './model'
 
 interface CreateTicketBody {
   project_id: string
   title: string
   description: string
   priority?: number
+  model?: string | null
 }
 
 interface UpdateTicketBody {
   title?: string
   priority?: number
+  model?: string | null
 }
 
 interface TicketParams {
@@ -39,13 +42,17 @@ export async function ticketRoutes(app: FastifyInstance) {
     if (!Number.isInteger(priority) || priority < 1 || priority > 5) {
       return reply.status(400).send({ error: 'priority must be an integer 1-5' })
     }
+    const model = normalizeModel(req.body.model)
+    if (model === undefined) {
+      return reply.status(400).send({ error: 'invalid model' })
+    }
     const project = await db.getProject(project_id)
     if (!project) {
       return reply.status(404).send({ error: 'Project not found' })
     }
 
     const ticket = await withTransaction(async (tx) => {
-      const t = await db.insertTicket(project.name, project_id, title, description, priority, tx)
+      const t = await db.insertTicket(project.name, project_id, title, description, priority, model, tx)
       await emitMessage(t.id, description, 'text', 'user', {}, tx)
       await emitTicketStatusChange(t.id, 'queued', undefined, tx)
       return t
@@ -68,17 +75,28 @@ export async function ticketRoutes(app: FastifyInstance) {
     if (priority !== undefined && (!Number.isInteger(priority) || priority < 1 || priority > 5)) {
       return reply.status(400).send({ error: 'priority must be an integer 1-5' })
     }
+    const hasModel = 'model' in req.body
+    const model = hasModel ? normalizeModel(req.body.model) : undefined
+    if (hasModel && model === undefined) {
+      return reply.status(400).send({ error: 'invalid model' })
+    }
 
     const updated = await withTransaction(async (tx) => {
       const ticket = await db.getTicket(req.params.id, tx)
       if (!ticket) return null
-      if (ticket.status !== 'queued') return { conflict: true }
-      await db.updateTicket(req.params.id, { title, priority }, tx)
+      // Title/priority are only editable while queued; model can change whenever the ticket isn't running
+      if ((title !== undefined || priority !== undefined) && ticket.status !== 'queued') {
+        return { conflict: 'Can only edit title/priority of queued tickets' }
+      }
+      if (hasModel && ticket.status === 'running') {
+        return { conflict: 'Cannot change model while ticket is running' }
+      }
+      await db.updateTicket(req.params.id, { title, priority, model }, tx)
       return await db.getTicket(req.params.id, tx)
     })
 
     if (updated === null) return reply.status(404).send({ error: 'Not found' })
-    if ('conflict' in updated) return reply.status(409).send({ error: 'Can only edit queued tickets' })
+    if ('conflict' in updated) return reply.status(409).send({ error: updated.conflict })
     return reply.send(updated)
   })
 

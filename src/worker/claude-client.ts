@@ -39,8 +39,13 @@ export async function* callClaude(
   sessionId?: string,
   workDir?: string,
   log?: (line: string) => void,
+  model?: string,
+  onModel?: (model: string) => void,
 ): AsyncGenerator<ClaudeEvent> {
   const cmd = ['claude', '-p', '--verbose', '--output-format', 'stream-json', '--dangerously-skip-permissions']
+  if (model) {
+    cmd.push('--model', model)
+  }
   if (sessionId) {
     cmd.push('--resume', sessionId)
   }
@@ -115,6 +120,13 @@ export async function* callClaude(
         }
 
         eventCount++
+        // system/init reports the model the CLI actually resolved (e.g. alias → full ID)
+        if (event.type === 'system' && event.subtype === 'init' && typeof event.model === 'string') {
+          const msg = `init event: model=${event.model}`
+          console.log(`${t} ${msg}`)
+          log?.(msg)
+          onModel?.(event.model)
+        }
         if (event.type === 'result') {
           const e = event as CLIResultEvent
           const msg = `result event: subtype=${e.subtype}, session_id=${e.session_id}`

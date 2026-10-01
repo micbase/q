@@ -37,6 +37,7 @@ export type StatusStreamEvent =
   | { type: 'TicketStatusChange';    ticket_id: string; ticket_status: TicketStatus; pr_url?: string }
   | { type: 'ContainerStatusChange'; ticket_id: string; container_status: ContainerStatus }
   | { type: 'DevServerStatusChange'; ticket_id: string; dev_server_status: DevServerStatus }
+  | { type: 'TicketModelChange';     ticket_id: string; current_model: string }
 
 
 export interface DbCredential {
@@ -75,6 +76,8 @@ export interface Ticket {
   completed_at?: number
   dev_url?: string
   pr_url?: string
+  model?: string          // requested model for the next run (unset = CLI default)
+  current_model?: string  // model the CLI reported on the most recent run
 }
 
 export interface Message extends ClaudeEvent {
@@ -95,4 +98,5 @@ export interface CreateTicketInput {
   title: string
   description: string
   priority: number
+  model?: string
 }

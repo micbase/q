@@ -44,3 +44,8 @@ export async function emitTicketStatusChange(
   }
   broker.publishStatus({ type: 'TicketStatusChange', ticket_id: ticketId, ticket_status: status, ...(prUrl ? { pr_url: prUrl } : {}) })
 }
+
+export async function emitTicketModelChange(ticketId: string, model: string, q: DB = defaultDB): Promise<void> {
+  await db.setTicketCurrentModel(ticketId, model, q)
+  broker.publishStatus({ type: 'TicketModelChange', ticket_id: ticketId, current_model: model })
+}
