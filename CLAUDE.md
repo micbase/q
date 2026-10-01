@@ -165,6 +165,11 @@ Containers are stateless. Conversation history is derived from the `messages` ta
 4. User reply is inserted into `messages`, ticket re-queued
 5. Scheduler picks up ticket, derives conversation from `messages`, pipes to CLI
 
+## Model Selection
+
+- `tickets.model` — requested model (alias like `opus`/`sonnet`/`haiku` or a full model ID; NULL = CLI default). Set on create, via `PATCH /api/tickets/:id` (any non-running status), or via `model` in the `POST /api/tickets/:id/reply` body. Passed as `claude --model` on the next run (works with `--resume`).
+- `tickets.current_model` — model the CLI actually resolved, read from the stream-json `system`/`init` event each run and broadcast as a `TicketModelChange` SSE event. Shown in the ticket header.
+
 ## Dry Run Mode
 
 Set `DRY_RUN=true` to test the full pipeline without Docker or Claude.
