@@ -58,6 +58,17 @@
       </div>
     </div>
 
+    <!-- Model -->
+    <div>
+      <label class="block text-base font-medium text-gray-700 mb-1">Model</label>
+      <select
+        v-model="form.model"
+        class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+      >
+        <option v-for="m in MODEL_OPTIONS" :key="m.value" :value="m.value">{{ m.label }}</option>
+      </select>
+    </div>
+
     <!-- Description -->
     <div>
       <label class="block text-base font-medium text-gray-700 mb-1">Description</label>
@@ -89,6 +100,7 @@
 import { ref, onMounted } from 'vue'
 import { api } from '../api'
 import type { Project } from '../../../shared/types'
+import { MODEL_OPTIONS } from '../models'
 
 const emit = defineEmits<{ created: [ticketId: string] }>()
 
@@ -99,6 +111,7 @@ const form = ref({
   description: '',
   project_id: '',
   priority: 3,
+  model: '',
 })
 
 const priorities = [

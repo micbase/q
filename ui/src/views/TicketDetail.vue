@@ -14,6 +14,10 @@
               <PriorityPips :priority="ticket.priority" class="shrink-0" />
               <span class="text-gray-300 shrink-0">·</span>
               <span class="text-sm text-gray-400 shrink-0" :title="new Date(ticket.created_at).toLocaleString()">{{ relativeTime(ticket.created_at) }}</span>
+              <template v-if="modelLabel">
+                <span class="text-gray-300 shrink-0">·</span>
+                <span class="text-xs font-mono text-gray-500 bg-gray-100 rounded px-1.5 py-0.5 truncate" :title="modelTitle">{{ modelLabel }}</span>
+              </template>
             </template>
           </div>
 
@@ -290,11 +294,21 @@
         rows="2"
         class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-50 resize-none"
       ></textarea>
-      <button
-        @click="sendReply"
-        :disabled="!reply.trim() || inputDisabled"
-        class="bg-blue-600 text-white px-4 rounded-lg text-base font-medium hover:bg-blue-700 disabled:opacity-50 self-stretch"
-      >Send</button>
+      <div class="flex flex-col gap-1 self-stretch">
+        <select
+          v-model="replyModel"
+          :disabled="inputDisabled"
+          title="Model for the next turn"
+          class="border border-gray-300 rounded-lg px-1.5 py-1 text-xs bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+        >
+          <option v-for="m in replyModelOptions" :key="m.value" :value="m.value">{{ m.label }}</option>
+        </select>
+        <button
+          @click="sendReply"
+          :disabled="!reply.trim() || inputDisabled"
+          class="flex-1 bg-blue-600 text-white px-4 rounded-lg text-base font-medium hover:bg-blue-700 disabled:opacity-50"
+        >Send</button>
+      </div>
     </div>
 
     <!-- ===== MOBILE BOTTOM SHEET ===== -->
@@ -306,6 +320,9 @@
         <div class="relative bg-white rounded-t-2xl pb-safe shadow-xl">
           <div class="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-2"></div>
           <div class="py-2">
+            <div v-if="modelLabel" class="px-5 py-2 text-sm text-gray-500" :title="modelTitle">
+              Model: <span class="font-mono">{{ modelLabel }}</span>
+            </div>
             <a
               v-if="ticket?.pr_url"
               :href="ticket.pr_url"
@@ -455,6 +472,7 @@ import { bus } from '../bus'
 import StatusChip from '../components/StatusChip.vue'
 import PriorityPips from '../components/PriorityPips.vue'
 import EditDiff from '../components/EditDiff.vue'
+import { MODEL_OPTIONS } from '../models'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
@@ -516,6 +534,7 @@ const deleting = ref(false)
 let es: EventSource | null = null
 let unsubStatus: (() => void) | undefined
 let unsubDevServerStatus: (() => void) | undefined
+let unsubModel: (() => void) | undefined
 
 const devServerStatus = ref<DevServerStatus>('stopped')
 
@@ -530,6 +549,24 @@ const isDevServerActive = computed(() =>
 const inputDisabled = computed(() => sending.value || isRunning.value)
 
 const devUrl = computed(() => ticket.value?.dev_url ?? null)
+
+// Model actually used on the last run (from the CLI init event), falling back to the requested one
+const modelLabel = computed(() => ticket.value?.current_model ?? ticket.value?.model ?? null)
+const modelTitle = computed(() => {
+  const t = ticket.value
+  if (!t) return ''
+  const requested = `Requested: ${t.model ?? 'default'}`
+  return t.current_model ? `Last run: ${t.current_model}\n${requested}` : requested
+})
+
+// Model selector in the reply box — changing it switches the model for the next turn
+const replyModel = ref('')
+const replyModelOptions = computed(() => {
+  const m = ticket.value?.model
+  return m && !MODEL_OPTIONS.some(o => o.value === m)
+    ? [...MODEL_OPTIONS, { value: m, label: m }]
+    : MODEL_OPTIONS
+})
 
 const grouped = computed<GroupedMsg[]>(() => {
   const out: GroupedMsg[] = []
@@ -713,7 +750,10 @@ async function sendReply() {
   sending.value = true
   replyError.value = ''
   try {
-    await api.reply(props.id, reply.value.trim())
+    // Only send model when it changed, so a reply never clobbers a model set elsewhere
+    const modelChanged = replyModel.value !== (ticket.value?.model ?? '')
+    await api.reply(props.id, reply.value.trim(), modelChanged ? replyModel.value || null : undefined)
+    if (modelChanged && ticket.value) ticket.value = { ...ticket.value, model: replyModel.value || undefined }
     reply.value = ''
   } catch (err) {
     replyError.value = err instanceof Error ? err.message : 'Failed to send reply'
@@ -818,6 +858,7 @@ async function load(id: string) {
   es?.close()
   unsubStatus?.()
   unsubDevServerStatus?.()
+  unsubModel?.()
   ticket.value = null
   messages.value = []
   ticketStatus.value = 'queued'
@@ -829,6 +870,7 @@ async function load(id: string) {
     if (ticket.value) {
       ticketStatus.value = ticket.value.status
       devServerStatus.value = ticket.value.dev_server_status
+      replyModel.value = ticket.value.model ?? ''
     }
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load ticket'
@@ -843,6 +885,10 @@ async function load(id: string) {
 
   unsubDevServerStatus = bus.onDevServerStatus((ticketId, status) => {
     if (ticketId === id) devServerStatus.value = status
+  })
+
+  unsubModel = bus.onTicketModel((ticketId, model) => {
+    if (ticketId === id && ticket.value) ticket.value = { ...ticket.value, current_model: model }
   })
 
   openStream(id)
@@ -875,6 +921,7 @@ onUnmounted(() => {
   es?.close()
   unsubStatus?.()
   unsubDevServerStatus?.()
+  unsubModel?.()
   scrollEl.value?.removeEventListener('scroll', onScroll)
   if (logsPollHandle) clearInterval(logsPollHandle)
 })

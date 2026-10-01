@@ -167,28 +167,30 @@ export async function insertTicket(
   title: string,
   description: string,
   priority: number,
+  model: string | null,
   q: DB = defaultDB,
 ): Promise<Ticket> {
   const id = generateTicketId()
   const ts = now()
   const devUrl = buildDevUrl(projectName, id)
   await q.query(
-    "INSERT INTO tickets (id, project_id, title, description, priority, status, dev_url, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-    [id, project_id, title, description, priority, 'queued', devUrl, ts, ts]
+    "INSERT INTO tickets (id, project_id, title, description, priority, status, dev_url, model, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+    [id, project_id, title, description, priority, 'queued', devUrl, model, ts, ts]
   )
   return (await getTicket(id, q))!
 }
 
 export async function updateTicket(
   id: string,
-  fields: Partial<Pick<Ticket, 'title' | 'priority'>>,
+  fields: { title?: string; priority?: number; model?: string | null },
   q: DB = defaultDB,
 ): Promise<void> {
   const sets: string[] = ['updated_at = $1']
-  const vals: (string | number)[] = [now()]
+  const vals: (string | number | null)[] = [now()]
   let idx = 2
   if (fields.title !== undefined) { sets.push(`title = $${idx}`); vals.push(fields.title); idx++ }
   if (fields.priority !== undefined) { sets.push(`priority = $${idx}`); vals.push(fields.priority); idx++ }
+  if (fields.model !== undefined) { sets.push(`model = $${idx}`); vals.push(fields.model); idx++ }
   vals.push(id)
   await q.query(`UPDATE tickets SET ${sets.join(', ')} WHERE id = $${idx}`, vals)
 }
@@ -380,7 +382,16 @@ function mapTicket(row: Ticket): Ticket {
     error: row.error ?? undefined,
     dev_url: row.dev_url ?? undefined,
     pr_url: (row as any).pr_url ?? undefined,
+    model: row.model ?? undefined,
+    current_model: row.current_model ?? undefined,
   }
+}
+
+export async function setTicketCurrentModel(id: string, model: string, q: DB = defaultDB): Promise<void> {
+  await q.query(
+    'UPDATE tickets SET current_model = $1 WHERE id = $2',
+    [model, id]
+  )
 }
 
 export async function setTicketPrUrl(id: string, prUrl: string, q: DB = defaultDB): Promise<void> {

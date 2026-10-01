@@ -8,7 +8,7 @@ import { ensureWorktree, maybeCreatePullRequest } from './github'
 import * as provisioner from './provisioner'
 import { startDevServer } from './dev-server'
 import * as notify from './notify'
-import { emitMessage, emitTicketStatusChange } from '../broker/emit'
+import { emitMessage, emitTicketStatusChange, emitTicketModelChange } from '../broker/emit'
 import { appendLog } from '../logs/log-buffer'
 import ms from 'ms'
 
@@ -127,7 +127,13 @@ class Scheduler {
             throw err
           }
         }
-        eventSource = callClaude(containerId, prompt, logTag, sessionId ?? undefined, workDir, log)
+        if (ticket.model) ticketLog(ticket.id, `model: ${ticket.model}`)
+        const onModel = (model: string) => {
+          emitTicketModelChange(ticket.id, model).catch(err =>
+            console.warn(`[scheduler] Failed to record model for ${ticket.id}:`, err)
+          )
+        }
+        eventSource = callClaude(containerId, prompt, logTag, sessionId ?? undefined, workDir, log, ticket.model, onModel)
       }
 
       for await (const event of eventSource) {

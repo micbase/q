@@ -191,6 +191,10 @@ function handleGlobalEvent(event: StatusStreamEvent) {
     const t = tickets.value.find(t => t.id === event.ticket_id)
     if (t) t.dev_server_status = event.dev_server_status
     bus.emitDevServerStatus(event.ticket_id, event.dev_server_status)
+  } else if (event.type === 'TicketModelChange') {
+    const t = tickets.value.find(t => t.id === event.ticket_id)
+    if (t) t.current_model = event.current_model
+    bus.emitTicketModel(event.ticket_id, event.current_model)
   }
 }
 
