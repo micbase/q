@@ -168,21 +168,22 @@ export async function insertTicket(
   description: string,
   priority: number,
   model: string | null,
+  effort: string | null,
   q: DB = defaultDB,
 ): Promise<Ticket> {
   const id = generateTicketId()
   const ts = now()
   const devUrl = buildDevUrl(projectName, id)
   await q.query(
-    "INSERT INTO tickets (id, project_id, title, description, priority, status, dev_url, model, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
-    [id, project_id, title, description, priority, 'queued', devUrl, model, ts, ts]
+    "INSERT INTO tickets (id, project_id, title, description, priority, status, dev_url, model, effort, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+    [id, project_id, title, description, priority, 'queued', devUrl, model, effort, ts, ts]
   )
   return (await getTicket(id, q))!
 }
 
 export async function updateTicket(
   id: string,
-  fields: { title?: string; priority?: number; model?: string | null },
+  fields: { title?: string; priority?: number; model?: string | null; effort?: string | null },
   q: DB = defaultDB,
 ): Promise<void> {
   const sets: string[] = ['updated_at = $1']
@@ -191,6 +192,7 @@ export async function updateTicket(
   if (fields.title !== undefined) { sets.push(`title = $${idx}`); vals.push(fields.title); idx++ }
   if (fields.priority !== undefined) { sets.push(`priority = $${idx}`); vals.push(fields.priority); idx++ }
   if (fields.model !== undefined) { sets.push(`model = $${idx}`); vals.push(fields.model); idx++ }
+  if (fields.effort !== undefined) { sets.push(`effort = $${idx}`); vals.push(fields.effort); idx++ }
   vals.push(id)
   await q.query(`UPDATE tickets SET ${sets.join(', ')} WHERE id = $${idx}`, vals)
 }
@@ -384,6 +386,7 @@ function mapTicket(row: Ticket): Ticket {
     pr_url: (row as any).pr_url ?? undefined,
     model: row.model ?? undefined,
     current_model: row.current_model ?? undefined,
+    effort: row.effort ?? undefined,
   }
 }
 

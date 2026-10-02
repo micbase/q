@@ -58,15 +58,24 @@
       </div>
     </div>
 
-    <!-- Model -->
-    <div>
-      <label class="block text-base font-medium text-gray-700 mb-1">Model</label>
-      <select
-        v-model="form.model"
-        class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-      >
-        <option v-for="m in MODEL_OPTIONS" :key="m.value" :value="m.value">{{ m.label }}</option>
-      </select>
+    <!-- Model + effort -->
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-base font-medium text-gray-700 mb-1">Model</label>
+        <ModelPicker
+          v-model="form.model"
+          select-class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        />
+      </div>
+      <div>
+        <label class="block text-base font-medium text-gray-700 mb-1">Effort</label>
+        <select
+          v-model="form.effort"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        >
+          <option v-for="e in EFFORT_OPTIONS" :key="e.value" :value="e.value">{{ e.label }}</option>
+        </select>
+      </div>
     </div>
 
     <!-- Description -->
@@ -100,7 +109,8 @@
 import { ref, onMounted } from 'vue'
 import { api } from '../api'
 import type { Project } from '../../../shared/types'
-import { MODEL_OPTIONS } from '../models'
+import { EFFORT_OPTIONS } from '../models'
+import ModelPicker from './ModelPicker.vue'
 
 const emit = defineEmits<{ created: [ticketId: string] }>()
 
@@ -112,6 +122,7 @@ const form = ref({
   project_id: '',
   priority: 3,
   model: '',
+  effort: '',
 })
 
 const priorities = [

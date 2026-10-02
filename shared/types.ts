@@ -78,6 +78,7 @@ export interface Ticket {
   pr_url?: string
   model?: string          // requested model for the next run (unset = CLI default)
   current_model?: string  // model the CLI reported on the most recent run
+  effort?: string         // requested effort level for the next run (unset = CLI default)
 }
 
 export interface Message extends ClaudeEvent {
@@ -99,4 +100,5 @@ export interface CreateTicketInput {
   description: string
   priority: number
   model?: string
+  effort?: string
 }

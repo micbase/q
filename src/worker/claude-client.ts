@@ -41,10 +41,14 @@ export async function* callClaude(
   log?: (line: string) => void,
   model?: string,
   onModel?: (model: string) => void,
+  effort?: string,
 ): AsyncGenerator<ClaudeEvent> {
   const cmd = ['claude', '-p', '--verbose', '--output-format', 'stream-json', '--dangerously-skip-permissions']
   if (model) {
     cmd.push('--model', model)
+  }
+  if (effort) {
+    cmd.push('--effort', effort)
   }
   if (sessionId) {
     cmd.push('--resume', sessionId)

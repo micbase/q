@@ -128,12 +128,13 @@ class Scheduler {
           }
         }
         if (ticket.model) ticketLog(ticket.id, `model: ${ticket.model}`)
+        if (ticket.effort) ticketLog(ticket.id, `effort: ${ticket.effort}`)
         const onModel = (model: string) => {
           emitTicketModelChange(ticket.id, model).catch(err =>
             console.warn(`[scheduler] Failed to record model for ${ticket.id}:`, err)
           )
         }
-        eventSource = callClaude(containerId, prompt, logTag, sessionId ?? undefined, workDir, log, ticket.model, onModel)
+        eventSource = callClaude(containerId, prompt, logTag, sessionId ?? undefined, workDir, log, ticket.model, onModel, ticket.effort)
       }
 
       for await (const event of eventSource) {
