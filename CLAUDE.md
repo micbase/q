@@ -168,6 +168,8 @@ Containers are stateless. Conversation history is derived from the `messages` ta
 ## Model Selection
 
 - `tickets.model` — requested model (alias like `opus`/`sonnet`/`haiku` or a full model ID; NULL = CLI default). Set on create, via `PATCH /api/tickets/:id` (any non-running status), or via `model` in the `POST /api/tickets/:id/reply` body. Passed as `claude --model` on the next run (works with `--resume`).
+- `tickets.effort` — requested effort level (`low`/`medium`/`high`/`xhigh`/`max`; NULL = CLI default). Set the same ways as `model` (`effort` in the request body) and passed as `claude --effort`.
+- UI model picker offers family aliases (always latest), pinned model IDs (`ui/src/models.ts`), and a free-text custom model ID.
 - `tickets.current_model` — model the CLI actually resolved, read from the stream-json `system`/`init` event each run and broadcast as a `TicketModelChange` SSE event. Shown in the ticket header.
 
 ## Dry Run Mode

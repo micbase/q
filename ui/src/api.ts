@@ -51,7 +51,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  updateTicket: (id: string, body: { title?: string; priority?: number; model?: string | null }): Promise<Ticket> =>
+  updateTicket: (id: string, body: { title?: string; priority?: number; model?: string | null; effort?: string | null }): Promise<Ticket> =>
     request(`/tickets/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -67,12 +67,12 @@ export const api = {
   getMessages: (id: string): Promise<Message[]> =>
     request(`/tickets/${id}/messages`),
 
-  // model: omit to keep the ticket's current model; null/'' resets to CLI default
-  reply: (id: string, content: string, model?: string | null): Promise<void> =>
+  // model/effort: omit to keep the ticket's current setting; null/'' resets to CLI default
+  reply: (id: string, content: string, opts: { model?: string | null; effort?: string | null } = {}): Promise<void> =>
     request(`/tickets/${id}/reply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(model === undefined ? { content } : { content, model }),
+      body: JSON.stringify({ content, ...opts }),
     }),
 
   getStatus: (): Promise<Status> =>

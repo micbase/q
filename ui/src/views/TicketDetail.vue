@@ -18,6 +18,7 @@
                 <span class="text-gray-300 shrink-0">·</span>
                 <span class="text-xs font-mono text-gray-500 bg-gray-100 rounded px-1.5 py-0.5 truncate" :title="modelTitle">{{ modelLabel }}</span>
               </template>
+              <span v-if="ticket.effort" class="text-xs font-mono text-gray-500 bg-gray-100 rounded px-1.5 py-0.5 shrink-0" title="Requested effort">{{ ticket.effort }}</span>
             </template>
           </div>
 
@@ -284,29 +285,38 @@
     </div>
 
     <!-- Reply box -->
-    <div class="border-t border-gray-200 px-4 py-3 flex gap-2 shrink-0">
-      <textarea
-        v-model="reply"
-        :placeholder="ticketStatus === 'done' ? 'Follow up...' : 'Type your reply...'"
-        :disabled="inputDisabled"
-        @keydown.enter.meta.prevent="sendReply"
-        @keydown.enter.ctrl.prevent="sendReply"
-        rows="2"
-        class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-50 resize-none"
-      ></textarea>
-      <div class="flex flex-col gap-1 self-stretch">
-        <select
+    <div class="border-t border-gray-200 px-4 pt-2 pb-3 flex flex-col gap-2 shrink-0">
+      <!-- Model/effort for the next turn -->
+      <div class="flex items-start gap-2 text-xs">
+        <ModelPicker
           v-model="replyModel"
           :disabled="inputDisabled"
           title="Model for the next turn"
+          select-class="border border-gray-300 rounded-lg px-1.5 py-1 text-xs bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+        />
+        <select
+          v-model="replyEffort"
+          :disabled="inputDisabled"
+          title="Effort for the next turn"
           class="border border-gray-300 rounded-lg px-1.5 py-1 text-xs bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
         >
-          <option v-for="m in replyModelOptions" :key="m.value" :value="m.value">{{ m.label }}</option>
+          <option v-for="e in EFFORT_OPTIONS" :key="e.value" :value="e.value">{{ e.label }}</option>
         </select>
+      </div>
+      <div class="flex gap-2">
+        <textarea
+          v-model="reply"
+          :placeholder="ticketStatus === 'done' ? 'Follow up...' : 'Type your reply...'"
+          :disabled="inputDisabled"
+          @keydown.enter.meta.prevent="sendReply"
+          @keydown.enter.ctrl.prevent="sendReply"
+          rows="2"
+          class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-50 resize-none"
+        ></textarea>
         <button
           @click="sendReply"
           :disabled="!reply.trim() || inputDisabled"
-          class="flex-1 bg-blue-600 text-white px-4 rounded-lg text-base font-medium hover:bg-blue-700 disabled:opacity-50"
+          class="bg-blue-600 text-white px-4 rounded-lg text-base font-medium hover:bg-blue-700 disabled:opacity-50"
         >Send</button>
       </div>
     </div>
@@ -322,6 +332,9 @@
           <div class="py-2">
             <div v-if="modelLabel" class="px-5 py-2 text-sm text-gray-500" :title="modelTitle">
               Model: <span class="font-mono">{{ modelLabel }}</span>
+            </div>
+            <div v-if="ticket?.effort" class="px-5 py-2 text-sm text-gray-500">
+              Effort: <span class="font-mono">{{ ticket.effort }}</span>
             </div>
             <a
               v-if="ticket?.pr_url"
@@ -472,7 +485,8 @@ import { bus } from '../bus'
 import StatusChip from '../components/StatusChip.vue'
 import PriorityPips from '../components/PriorityPips.vue'
 import EditDiff from '../components/EditDiff.vue'
-import { MODEL_OPTIONS } from '../models'
+import { EFFORT_OPTIONS } from '../models'
+import ModelPicker from '../components/ModelPicker.vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
@@ -559,14 +573,9 @@ const modelTitle = computed(() => {
   return t.current_model ? `Last run: ${t.current_model}\n${requested}` : requested
 })
 
-// Model selector in the reply box — changing it switches the model for the next turn
+// Model/effort selectors in the reply box — changing them switches the setting for the next turn
 const replyModel = ref('')
-const replyModelOptions = computed(() => {
-  const m = ticket.value?.model
-  return m && !MODEL_OPTIONS.some(o => o.value === m)
-    ? [...MODEL_OPTIONS, { value: m, label: m }]
-    : MODEL_OPTIONS
-})
+const replyEffort = ref('')
 
 const grouped = computed<GroupedMsg[]>(() => {
   const out: GroupedMsg[] = []
@@ -750,10 +759,16 @@ async function sendReply() {
   sending.value = true
   replyError.value = ''
   try {
-    // Only send model when it changed, so a reply never clobbers a model set elsewhere
+    // Only send model/effort when changed, so a reply never clobbers a setting changed elsewhere
     const modelChanged = replyModel.value !== (ticket.value?.model ?? '')
-    await api.reply(props.id, reply.value.trim(), modelChanged ? replyModel.value || null : undefined)
-    if (modelChanged && ticket.value) ticket.value = { ...ticket.value, model: replyModel.value || undefined }
+    const effortChanged = replyEffort.value !== (ticket.value?.effort ?? '')
+    await api.reply(props.id, reply.value.trim(), {
+      ...(modelChanged && { model: replyModel.value || null }),
+      ...(effortChanged && { effort: replyEffort.value || null }),
+    })
+    if ((modelChanged || effortChanged) && ticket.value) {
+      ticket.value = { ...ticket.value, model: replyModel.value || undefined, effort: replyEffort.value || undefined }
+    }
     reply.value = ''
   } catch (err) {
     replyError.value = err instanceof Error ? err.message : 'Failed to send reply'
@@ -871,6 +886,7 @@ async function load(id: string) {
       ticketStatus.value = ticket.value.status
       devServerStatus.value = ticket.value.dev_server_status
       replyModel.value = ticket.value.model ?? ''
+      replyEffort.value = ticket.value.effort ?? ''
     }
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load ticket'
