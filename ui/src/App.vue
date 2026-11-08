@@ -13,6 +13,11 @@
       </span>
 
       <RouterLink
+        to="/auth"
+        class="text-base px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors font-medium"
+      >Auth</RouterLink>
+
+      <RouterLink
         to="/containers"
         class="text-base px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors font-medium"
       >Containers</RouterLink>
@@ -141,6 +146,8 @@
           <span class="block px-4 py-1 text-xs text-gray-400 font-medium uppercase tracking-wide">Queue</span>
           <div class="px-4 py-1.5 text-sm text-gray-700">{{ status?.queue_depth ?? 0 }} queued</div>
           <div class="px-4 py-1.5 text-sm text-gray-700">{{ status?.paused_count ?? 0 }} paused</div>
+          <div class="border-t border-gray-100 my-1"></div>
+          <RouterLink to="/auth" @click="mobileMoreOpen = false" class="block px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-50">Claude Auth</RouterLink>
         </div>
       </div>
     </Transition>
