@@ -40,6 +40,7 @@ src/
     claude-client.ts     # docker exec CLI invocation (NDJSON streaming)
     session.ts           # buildInitialMessages(), isQuestion(), runDrySession()
     notify.ts            # ntfy notifications
+    claude-auth.ts       # UI-driven `claude auth login` in a helper container
   proxy/
     proxy.ts             # Dev container HTTP/WebSocket reverse proxy
   api/
@@ -49,6 +50,7 @@ src/
     messages.ts          # Thread + reply routes
     stream.ts            # SSE route
     status.ts            # Queue status
+    auth.ts              # Claude login routes
 
 Dockerfile               # q image (no SDK — q doesn't call Claude)
 Dockerfile.project        # project container (node:24-slim + claude CLI + sleep infinity)
@@ -60,6 +62,7 @@ ui/src/
   views/
     NewTicket.vue         # Create form (project selector)
     TicketDetail.vue      # SSE chat view + reply box
+    Auth.vue              # Claude login status + login flow
   components/
     StatusChip.vue
     PriorityPips.vue
@@ -171,6 +174,16 @@ Containers are stateless. Conversation history is derived from the `messages` ta
 - `tickets.effort` — requested effort level (`low`/`medium`/`high`/`xhigh`/`max`; NULL = CLI default). Set the same ways as `model` (`effort` in the request body) and passed as `claude --effort`.
 - UI model picker offers family aliases (always latest), pinned model IDs (`ui/src/models.ts`), and a free-text custom model ID.
 - `tickets.current_model` — model the CLI actually resolved, read from the stream-json `system`/`init` event each run and broadcast as a `TicketModelChange` SSE event. Shown in the ticket header.
+
+## Claude Authentication
+
+All ticket containers bind-mount one shared OAuth credentials file, `${SESSIONS_DIR}/.credentials.json`, at `~/.claude/.credentials.json`. Log in from the UI (**Auth** page, `/auth`) instead of shelling into a container:
+
+1. `POST /api/auth/login` starts a helper container (project image, `SESSIONS_DIR` mounted at `/q-sessions`) and runs `claude auth login` in it. The CLI works without a TTY: q reads the OAuth URL from its stdout and returns it.
+2. The user opens the URL, authorizes, and pastes the code shown into the UI → `POST /api/auth/login/code`. q writes the code to the CLI's stdin.
+3. If the CLI wrote `~/.claude/.credentials.json`, q copies it over the shared file with `cat >`. That keeps the inode, so running containers' file bind mounts pick up the change. The helper container is then removed.
+
+`GET /api/auth/status` reads the shared file through a helper container and returns only metadata (subscription type, expiry). Tokens never leave the container. `DELETE /api/auth/login` cancels a pending login, and logins time out after 10 minutes.
 
 ## Dry Run Mode
 

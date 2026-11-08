@@ -1,4 +1,4 @@
-import type { Project, Ticket, Message, MessageStreamEvent, StatusStreamEvent, CreateTicketInput, Status } from '../../shared/types'
+import type { Project, Ticket, Message, MessageStreamEvent, StatusStreamEvent, CreateTicketInput, Status, ClaudeAuthStatus } from '../../shared/types'
 
 const BASE = '/api'
 
@@ -103,6 +103,23 @@ export const api = {
 
   getLogs: (id: string): Promise<{ lines: string[] }> =>
     request(`/tickets/${id}/logs`),
+
+  // Claude auth
+  getAuthStatus: (): Promise<ClaudeAuthStatus> =>
+    request('/auth/status'),
+
+  startLogin: (): Promise<{ url: string }> =>
+    request('/auth/login', { method: 'POST' }),
+
+  submitLoginCode: (code: string): Promise<ClaudeAuthStatus> =>
+    request('/auth/login/code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    }),
+
+  cancelLogin: (): Promise<void> =>
+    request('/auth/login', { method: 'DELETE' }),
 
   streamMessageEvents: (id: string, onEvent: (e: MessageStreamEvent) => void, onError?: () => void): EventSource => {
     const es = new EventSource(`${BASE}/tickets/${id}/stream`)

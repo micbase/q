@@ -94,6 +94,15 @@ export interface Status {
   dry_run: boolean
 }
 
+export interface ClaudeAuthStatus {
+  configured: boolean               // shared credentials file has OAuth tokens
+  subscription_type: string | null  // e.g. 'pro', 'max'
+  expires_at: string | null         // access token expiry (CLI refreshes it automatically)
+  refresh_token_expires_at: string | null
+  scopes: string[]
+  login_in_progress: boolean
+}
+
 export interface CreateTicketInput {
   project_id: string
   title: string

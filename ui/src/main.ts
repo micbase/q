@@ -4,6 +4,7 @@ import App from './App.vue'
 import TicketDetail from './views/TicketDetail.vue'
 import Projects from './views/Projects.vue'
 import Containers from './views/Containers.vue'
+import Auth from './views/Auth.vue'
 import './style.css'
 
 const EmptyState = defineComponent({
@@ -17,6 +18,7 @@ const router = createRouter({
     { path: '/new', component: EmptyState },
     { path: '/projects', component: Projects },
     { path: '/containers', component: Containers },
+    { path: '/auth', component: Auth },
     { path: '/tickets/:id', component: TicketDetail, props: true },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
