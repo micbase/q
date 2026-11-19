@@ -64,6 +64,9 @@ export const api = {
   archiveTicket: (id: string): Promise<void> =>
     request(`/tickets/${id}/archive`, { method: 'POST' }),
 
+  unarchiveTicket: (id: string): Promise<void> =>
+    request(`/tickets/${id}/unarchive`, { method: 'POST' }),
+
   getMessages: (id: string): Promise<Message[]> =>
     request(`/tickets/${id}/messages`),
 

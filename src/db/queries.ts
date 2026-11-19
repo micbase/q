@@ -237,6 +237,14 @@ export async function archiveTicket(id: string, q: DB = defaultDB): Promise<void
   )
 }
 
+/** Restore an archived ticket to 'done' so it can be followed up on again. */
+export async function unarchiveTicket(id: string, q: DB = defaultDB): Promise<void> {
+  await q.query(
+    "UPDATE tickets SET status = 'done', updated_at = $1 WHERE id = $2 AND status = 'archived'",
+    [now(), id]
+  )
+}
+
 /** Returns done tickets belonging to projects that have a github_repo configured. */
 export async function listDoneTicketsWithRepo(q: DB = defaultDB): Promise<Array<{ ticket_id: string; github_repo: string }>> {
   const { rows } = await q.query(

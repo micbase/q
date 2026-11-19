@@ -91,6 +91,12 @@
                   class="w-full text-left px-4 py-2 text-sm text-purple-700 hover:bg-purple-50"
                 >Archive ticket</button>
                 <button
+                  v-if="ticketStatus === 'archived'"
+                  @click="unarchiveTicket(); desktopMenuOpen = false"
+                  :disabled="unarchiving"
+                  class="w-full text-left px-4 py-2 text-sm text-purple-700 hover:bg-purple-50 disabled:opacity-40"
+                >Unarchive ticket</button>
+                <button
                   @click="deleteConfirmOpen = true; desktopMenuOpen = false"
                   class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                 >Delete ticket</button>
@@ -376,6 +382,12 @@
               class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-purple-700 hover:bg-purple-50"
             >Archive ticket</button>
             <button
+              v-if="ticketStatus === 'archived'"
+              @click="unarchiveTicket(); mobileSheetOpen = false"
+              :disabled="unarchiving"
+              class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-purple-700 hover:bg-purple-50 disabled:opacity-40"
+            >Unarchive ticket</button>
+            <button
               @click="deleteConfirmOpen = true; mobileSheetOpen = false"
               class="w-full flex items-center gap-3 px-5 py-3.5 text-base text-red-600 hover:bg-red-50"
             >Delete ticket</button>
@@ -543,6 +555,7 @@ const logsAutoScroll = ref(true)
 let logsPollHandle: ReturnType<typeof setInterval> | null = null
 const archiveConfirmOpen = ref(false)
 const archiving = ref(false)
+const unarchiving = ref(false)
 const deleteConfirmOpen = ref(false)
 const deleting = ref(false)
 let es: EventSource | null = null
@@ -822,6 +835,18 @@ async function archiveTicket() {
   } catch { /* ignore */ } finally {
     archiving.value = false
     archiveConfirmOpen.value = false
+  }
+}
+
+async function unarchiveTicket() {
+  if (unarchiving.value) return
+  unarchiving.value = true
+  try {
+    await api.unarchiveTicket(props.id)
+    ticketStatus.value = 'done'
+    bus.refresh()
+  } catch { /* ignore */ } finally {
+    unarchiving.value = false
   }
 }
 
