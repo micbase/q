@@ -142,6 +142,20 @@ export async function ticketRoutes(app: FastifyInstance) {
     }
   })
 
+  // POST /api/tickets/:id/unarchive — restore an archived ticket to 'done'
+  app.post<{ Params: TicketParams }>('/tickets/:id/unarchive', async (req, reply) => {
+    await withTransaction(async (tx) => {
+      const ticket = await db.getTicket(req.params.id, tx)
+      if (!ticket) { reply.status(404).send({ error: 'Not found' }); return }
+      if (ticket.status !== 'archived') {
+        reply.status(409).send({ error: 'Ticket is not archived' }); return
+      }
+      await db.unarchiveTicket(req.params.id, tx)
+      await emitTicketStatusChange(req.params.id, 'done', undefined, tx)
+      reply.status(204).send()
+    })
+  })
+
   // DELETE /api/tickets/:id — soft delete (sets status to cancelled)
   app.delete<{ Params: TicketParams }>('/tickets/:id', async (req, reply) => {
     await withTransaction(async (tx) => {
