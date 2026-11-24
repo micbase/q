@@ -1,4 +1,5 @@
 import { config, validate, scrubEnv } from './config'
+import { initAttachments } from './worker/attachments'
 import { testConnection, getPool } from './db/connection'
 import { buildServer } from './api/server'
 import { scheduler } from './worker/scheduler'
@@ -16,6 +17,9 @@ async function main(): Promise<void> {
 
   // Test DB connection
   await testConnection()
+
+  // Image upload storage (disabled with a warning if the dir isn't writable)
+  await initAttachments()
 
   // Stop any orphaned containers from a previous crash
   await provisioner.stopAll()

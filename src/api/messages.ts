@@ -4,9 +4,18 @@ import { withTransaction } from '../db/connection'
 import { emitMessage, emitTicketStatusChange } from '../broker/emit'
 import { normalizeEffort, normalizeModel } from './model'
 import type { AttachmentMeta } from '../../shared/types'
+import {
+  ALLOWED_IMAGE_TYPES, attachmentsEnabled, attachmentsDisabledReason,
+  saveAttachment, deleteAttachments, readAttachment,
+} from '../worker/attachments'
 
 interface TicketParams {
   id: string
+}
+
+interface AttachmentParams {
+  id: string
+  file: string
 }
 
 interface ReplyAttachment {
@@ -22,8 +31,6 @@ interface ReplyBody {
   attachments?: ReplyAttachment[]
 }
 
-// Image types the Claude API accepts
-export const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
 export const MAX_ATTACHMENTS = 10
 // The API rejects images over 5 MB once base64-encoded, i.e. ~3.75 MB of raw bytes
 export const MAX_ATTACHMENT_BYTES = Math.floor(5 * 1024 * 1024 * 3 / 4)
@@ -64,12 +71,12 @@ export async function messageRoutes(app: FastifyInstance) {
     return reply.send(messages)
   })
 
-  // GET /api/attachments/:id — raw image bytes
-  app.get<{ Params: TicketParams }>('/attachments/:id', async (req, reply) => {
-    const att = await db.getAttachment(req.params.id)
+  // GET /api/tickets/:id/attachments/:file — raw image bytes from ATTACHMENTS_DIR
+  app.get<{ Params: AttachmentParams }>('/tickets/:id/attachments/:file', async (req, reply) => {
+    const att = await readAttachment(req.params.id, req.params.file)
     if (!att) return reply.status(404).send({ error: 'Not found' })
     return reply
-      .header('Content-Type', att.media_type)
+      .header('Content-Type', att.mediaType)
       .header('Cache-Control', 'private, max-age=31536000, immutable')
       .header('X-Content-Type-Options', 'nosniff')
       .send(att.data)
@@ -88,6 +95,9 @@ export async function messageRoutes(app: FastifyInstance) {
     if (!content && !attachments.length) {
       return reply.status(400).send({ error: 'content or attachments required' })
     }
+    if (attachments.length && !attachmentsEnabled()) {
+      return reply.status(503).send({ error: `Image uploads unavailable: ${attachmentsDisabledReason()}` })
+    }
     const hasModel = 'model' in req.body
     const model = hasModel ? normalizeModel(req.body.model) : undefined
     if (hasModel && model === undefined) {
@@ -99,21 +109,27 @@ export async function messageRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'invalid effort' })
     }
 
-    await withTransaction(async (tx) => {
-      const ticket = await db.getTicket(req.params.id, tx)
-      if (!ticket) { reply.status(404).send({ error: 'Not found' }); return }
-      if (ticket.status !== 'paused' && ticket.status !== 'done' && ticket.status !== 'failed') {
-        reply.status(409).send({ error: 'Ticket is not paused, done, or failed' }); return
-      }
+    // Files are written inside the transaction (after the ticket checks) and removed if it fails
+    const saved: AttachmentMeta[] = []
+    try {
+      await withTransaction(async (tx) => {
+        const ticket = await db.getTicket(req.params.id, tx)
+        if (!ticket) { reply.status(404).send({ error: 'Not found' }); return }
+        if (ticket.status !== 'paused' && ticket.status !== 'done' && ticket.status !== 'failed') {
+          reply.status(409).send({ error: 'Ticket is not paused, done, or failed' }); return
+        }
 
-      if (model !== undefined || effort !== undefined) await db.updateTicket(req.params.id, { model, effort }, tx)
-      const metas: AttachmentMeta[] = []
-      for (const a of attachments) {
-        metas.push(await db.insertAttachment(req.params.id, a.mediaType, a.data, a.name, tx))
-      }
-      await emitMessage(req.params.id, content, 'text', 'user', { attachments: metas }, tx)
-      await emitTicketStatusChange(req.params.id, 'queued', undefined, tx)
-    })
+        if (model !== undefined || effort !== undefined) await db.updateTicket(req.params.id, { model, effort }, tx)
+        for (const a of attachments) {
+          saved.push(await saveAttachment(req.params.id, a.mediaType, a.data, a.name))
+        }
+        await emitMessage(req.params.id, content, 'text', 'user', { attachments: saved }, tx)
+        await emitTicketStatusChange(req.params.id, 'queued', undefined, tx)
+      })
+    } catch (err) {
+      if (saved.length) await deleteAttachments(req.params.id, saved)
+      throw err
+    }
 
     return reply.status(204).send()
   })

@@ -98,6 +98,7 @@ DRY_RUN=false                   # set true to skip Docker + Claude entirely
 PROXY_DOMAIN=                   # dev proxy domain (empty=disabled); e.g. "dev.localhost"
 PROXY_PORT=3201                 # port for the dev proxy server
 DEV_SERVER_PORT=5173            # port on the container to proxy to (e.g. Vite)
+ATTACHMENTS_DIR=${SESSIONS_DIR}/.attachments  # uploaded images; q writes here directly (see Image Attachments)
 ```
 
 ## Commands
@@ -121,7 +122,7 @@ Run `sql/1.sql` once to create tables:
 psql -U postgres -f sql/1.sql
 ```
 
-Tables: `projects`, `tickets`, `messages`, `attachments`
+Tables: `projects`, `tickets`, `messages`
 
 - `tickets.project_id` references `projects.id`
 - `tickets.container_status` tracks the Docker container lifecycle (`stopped` / `starting` / `running`)
@@ -172,9 +173,11 @@ Containers are stateless. Conversation history is derived from the `messages` ta
 
 - The reply box accepts images via the 📎 button, paste (Ctrl/Cmd+V), or drag-and-drop. `ui/src/images.ts` downscales/re-encodes as JPEG if an image is over 2000px on its long side, over 3.5 MB, or in a type Claude can't read (e.g. HEIC).
 - `POST /api/tickets/:id/reply` takes `attachments: [{ media_type, data (base64), name? }]` (png/jpeg/gif/webp, max 10, ≤3.75 MB decoded each, which is the API's 5 MB base64 limit). `content` may be empty if images are attached.
-- Bytes are stored in the `attachments` table. `messages.attachments` (JSONB) holds only metadata (`{id, media_type, name, size}`), so replay and SSE never carry image data. `GET /api/attachments/:id` serves the bytes.
-- When the resumed turn's last user message has images, `callClaude` adds `--input-format stream-json` and writes a single user message to stdin with image blocks followed by a text block. Turns without images still pipe plain text.
-- Dry run ignores attachments.
+- **Storage is on disk**, not in the DB: `${ATTACHMENTS_DIR}/<ticketId>/<id>.<ext>` (`src/worker/attachments.ts`). Files are written via temp file + rename inside the reply transaction and deleted if it fails. `messages.attachments` (JSONB) holds only metadata (`{id, file, media_type, name, size}`). `GET /api/tickets/:id/attachments/:file` serves the bytes; `file` must match `<21 [a-z0-9]>.<png|jpg|gif|webp>`, so paths can't escape the ticket dir.
+- Unlike `PROJECTS_DIR`/`SESSIONS_DIR` (only used as Docker bind sources), q reads and writes `ATTACHMENTS_DIR` itself. If q runs in Docker, mount it at the **same path** inside q as on the host. If the dir isn't writable at startup, uploads are disabled with a warning and return 503.
+- Each ticket container bind-mounts its dir read-only at `/attachments`. q creates the dir before creating the container, and later uploads appear through the mount.
+- When the resumed turn's last user message has images, `callClaude` adds `--input-format stream-json` and writes one user message to stdin: image blocks, then the text plus a note listing the `/attachments/...` paths, so Claude can both see the images and copy them into the repo. Turns without images still pipe plain text.
+- Files are kept when a ticket is (soft-)deleted. Dry run ignores attachments.
 
 ## Model Selection
 

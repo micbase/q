@@ -83,7 +83,7 @@ export const api = {
       body: JSON.stringify({ content, ...opts }),
     }),
 
-  attachmentUrl: (id: string): string => `${BASE}/attachments/${id}`,
+  attachmentUrl: (ticketId: string, file: string): string => `${BASE}/tickets/${ticketId}/attachments/${file}`,
 
   getStatus: (): Promise<Status> =>
     request('/status'),

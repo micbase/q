@@ -17,9 +17,11 @@ export interface ToolFields {
   parent_tool_use_id?: string // set when tool was invoked inside another tool (e.g. Agent subagent)
 }
 
-// Metadata for an image attached to a user message; bytes are served from GET /api/attachments/:id
+// Metadata for an image attached to a user message. The file lives at ATTACHMENTS_DIR/<ticket_id>/<file>,
+// is served from GET /api/tickets/:id/attachments/:file, and appears in the container at /attachments/<file>.
 export interface AttachmentMeta {
   id: string
+  file: string         // on-disk name: <id>.<ext>
   media_type: string   // image/png | image/jpeg | image/gif | image/webp
   name?: string
   size: number         // bytes

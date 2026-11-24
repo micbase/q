@@ -179,12 +179,12 @@
               <a
                 v-for="a in g.msg!.attachments"
                 :key="a.id"
-                :href="api.attachmentUrl(a.id)"
+                :href="api.attachmentUrl(props.id, a.file)"
                 target="_blank"
                 :title="a.name ?? 'image'"
               >
                 <img
-                  :src="api.attachmentUrl(a.id)"
+                  :src="api.attachmentUrl(props.id, a.file)"
                   :alt="a.name ?? 'attached image'"
                   class="max-h-48 max-w-full rounded-xl border border-gray-200 object-contain bg-gray-50"
                   loading="lazy"

@@ -82,7 +82,8 @@ export async function prepareImage(file: File): Promise<PendingImage> {
   return {
     media_type: blob.type,
     data: await readAsBase64(blob),
-    name: file.name || undefined,
+    // Keep the name honest if we re-encoded (e.g. photo.heic → photo.jpg)
+    name: (needsShrink && file.name ? file.name.replace(/\.[^./]+$/, '') + '.jpg' : file.name) || undefined,
     previewUrl: URL.createObjectURL(blob),
     size: blob.size,
   }

@@ -38,6 +38,9 @@ export const config = {
   containerIdleTimeoutMs: optionalInt('CONTAINER_IDLE_TIMEOUT_MS', 600_000),
   projectsDir: required('PROJECTS_DIR'),
   sessionsDir: required('SESSIONS_DIR'),
+  // Uploaded images, one subdir per ticket, bind-mounted read-only at /attachments in ticket containers.
+  // q writes here directly, so if q runs in Docker this must be mounted at the same path as on the host.
+  attachmentsDir: optional('ATTACHMENTS_DIR', `${required('SESSIONS_DIR')}/.attachments`),
   projectImage: optional('PROJECT_IMAGE', 'q-project'),
   maxConcurrentTickets: optionalInt('MAX_CONCURRENT_TICKETS', 2),
   dryRun: optionalBool('DRY_RUN', false),
@@ -78,6 +81,7 @@ export function validate(): void {
   console.log(`[config]   Container idle timeout: ${config.containerIdleTimeoutMs}ms`)
   console.log(`[config]   Projects dir: ${config.projectsDir}`)
   console.log(`[config]   Sessions dir: ${config.sessionsDir}`)
+  console.log(`[config]   Attachments dir: ${config.attachmentsDir}`)
   console.log(`[config]   Project image: ${config.projectImage}`)
   console.log(`[config]   Container user: ${config.containerUser}`)
   console.log(`[config]   Dry run: ${config.dryRun}`)

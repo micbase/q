@@ -360,49 +360,6 @@ export async function getLastUserMessage(
   return rows.length ? { content: rows[0].content, attachments: rows[0].attachments ?? [] } : null
 }
 
-// ─── Attachments ─────────────────────────────────────────────────────────────
-
-export interface AttachmentData {
-  id: string
-  ticket_id: string
-  media_type: string
-  data: Buffer
-}
-
-export async function insertAttachment(
-  ticketId: string,
-  mediaType: string,
-  data: Buffer,
-  name: string | undefined,
-  q: DB = defaultDB,
-): Promise<AttachmentMeta> {
-  const id = nanoid()
-  await q.query(
-    'INSERT INTO attachments (id, ticket_id, media_type, name, size, data, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-    [id, ticketId, mediaType, name ?? null, data.length, data, now()]
-  )
-  return { id, media_type: mediaType, ...(name ? { name } : {}), size: data.length }
-}
-
-export async function getAttachment(id: string, q: DB = defaultDB): Promise<AttachmentData | null> {
-  const { rows } = await q.query(
-    'SELECT id, ticket_id, media_type, data FROM attachments WHERE id = $1',
-    [id]
-  )
-  return rows.length ? rows[0] as AttachmentData : null
-}
-
-/** Fetch attachment bytes for the given ids, preserving the order of `ids` */
-export async function getAttachments(ids: string[], q: DB = defaultDB): Promise<AttachmentData[]> {
-  if (!ids.length) return []
-  const { rows } = await q.query(
-    'SELECT id, ticket_id, media_type, data FROM attachments WHERE id = ANY($1)',
-    [ids]
-  )
-  const byId = new Map((rows as AttachmentData[]).map(r => [r.id, r]))
-  return ids.map(id => byId.get(id)).filter((r): r is AttachmentData => !!r)
-}
-
 export async function getLastClaudeSessionId(ticketId: string, q: DB = defaultDB): Promise<string | null> {
   const { rows } = await q.query(
     "SELECT claude_session_id FROM messages WHERE ticket_id = $1 AND claude_session_id IS NOT NULL ORDER BY created_at DESC LIMIT 1",

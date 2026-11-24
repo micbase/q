@@ -3,6 +3,8 @@ import * as db from '../db/queries'
 import { withTransaction } from '../db/connection'
 import type { ClaudeEvent } from '../../shared/types'
 import { callClaude, type ClaudeImage } from './claude-client'
+import { readAttachment, withAttachmentPaths } from './attachments'
+import type { AttachmentMeta } from '../../shared/types'
 import { runDrySession, buildInitialPrompt } from './session'
 import { ensureWorktree, maybeCreatePullRequest } from './github'
 import * as provisioner from './provisioner'
@@ -85,8 +87,15 @@ class Scheduler {
       const lastMsg = await db.getLastUserMessage(ticket.id)
       prompt = lastMsg?.content ?? ''
       if (lastMsg?.attachments.length) {
-        const rows = await db.getAttachments(lastMsg.attachments.map(a => a.id))
-        images = rows.map(r => ({ media_type: r.media_type, data: r.data.toString('base64') }))
+        const found: AttachmentMeta[] = []
+        for (const meta of lastMsg.attachments) {
+          const att = await readAttachment(ticket.id, meta.file)
+          if (!att) { ticketLog(ticket.id, `attachment missing on disk: ${meta.file}`); continue }
+          images.push({ media_type: att.mediaType, data: att.data.toString('base64') })
+          found.push(meta)
+        }
+        // Tell Claude where the files are so it can use them, not just look at them
+        if (found.length && !config.dryRun) prompt = withAttachmentPaths(prompt, found)
       }
       ticketLog(ticket.id, `resuming session ${sessionId}${images.length ? ` with ${images.length} image(s)` : ''}`)
     } else {
