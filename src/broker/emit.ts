@@ -27,6 +27,7 @@ export async function emitMessage(
     tool_result_for_id: opts.toolResultForId,
     is_error: opts.isError,
     parent_tool_use_id: opts.parentToolUseId,
+    ...(opts.attachments?.length ? { attachments: opts.attachments } : {}),
   })
 }
 

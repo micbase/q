@@ -30,6 +30,26 @@ interface CLIResultEvent {
 
 type CLIEvent = CLIMessageEvent | CLIResultEvent | { type: string; [key: string]: unknown }
 
+// An image to send alongside the prompt (base64-encoded bytes)
+export interface ClaudeImage {
+  media_type: string
+  data: string
+}
+
+/**
+ * Build the stdin payload. Plain text is piped as-is; when images are attached the CLI is run with
+ * `--input-format stream-json` and receives a single user message with text + image content blocks.
+ */
+export function buildStdinPayload(prompt: string, images: ClaudeImage[]): string {
+  if (!images.length) return prompt
+  const content: unknown[] = images.map(img => ({
+    type: 'image',
+    source: { type: 'base64', media_type: img.media_type, data: img.data },
+  }))
+  if (prompt) content.push({ type: 'text', text: prompt })
+  return JSON.stringify({ type: 'user', message: { role: 'user', content } }) + '\n'
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export async function* callClaude(
@@ -42,8 +62,12 @@ export async function* callClaude(
   model?: string,
   onModel?: (model: string) => void,
   effort?: string,
+  images: ClaudeImage[] = [],
 ): AsyncGenerator<ClaudeEvent> {
   const cmd = ['claude', '-p', '--verbose', '--output-format', 'stream-json', '--dangerously-skip-permissions']
+  if (images.length) {
+    cmd.push('--input-format', 'stream-json')
+  }
   if (model) {
     cmd.push('--model', model)
   }
@@ -61,7 +85,7 @@ export async function* callClaude(
   const wdLine = `workDir: ${workDir ?? '/workspace'}`
   console.log(`${t} ${wdLine}`)
   log?.(wdLine)
-  const promptLine = `prompt length: ${prompt.length} chars`
+  const promptLine = `prompt length: ${prompt.length} chars${images.length ? `, ${images.length} image(s)` : ''}`
   console.log(`${t} ${promptLine}`)
   log?.(promptLine)
 
@@ -74,7 +98,7 @@ export async function* callClaude(
   log?.(startedLine)
 
   // Write prompt to stdin, then close stdin
-  duplex.write(prompt)
+  duplex.write(buildStdinPayload(prompt, images))
   duplex.end()
   console.log(`${t} stdin closed`)
   log?.('stdin closed')
