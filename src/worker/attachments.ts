@@ -28,17 +28,71 @@ const FILE_RE = /^[a-z0-9]{21}\.(png|jpg|gif|webp)$/
 let enabled = false
 let disabledReason = 'attachments directory not initialised'
 
-/** Create the attachments dir and check it is writable; uploads are disabled (not fatal) if not */
-export async function initAttachments(): Promise<void> {
+const MOUNT_HINT =
+  'If q runs in Docker, bind-mount the host directory into q at the same path ' +
+  '(e.g. -v /host/q/attachments:/host/q/attachments) and set ATTACHMENTS_DIR to it.'
+
+/**
+ * Mount point (from /proc/self/mountinfo) that contains `dir`, i.e. the longest matching prefix.
+ * Returns null if it can't be determined (non-Linux, no /proc).
+ */
+async function mountPointOf(dir: string): Promise<string | null> {
+  let info: string
   try {
-    await fs.mkdir(config.attachmentsDir, { recursive: true })
-    await fs.access(config.attachmentsDir, fs.constants.W_OK)
-    enabled = true
-  } catch (err) {
-    enabled = false
-    disabledReason = `attachments directory ${config.attachmentsDir} is not writable`
-    console.warn(`[attachments] ${disabledReason} — image uploads disabled:`, err)
+    info = await fs.readFile('/proc/self/mountinfo', 'utf8')
+  } catch {
+    return null
   }
+  let best: string | null = null
+  for (const line of info.split('\n')) {
+    const field = line.split(' ')[4]
+    if (!field) continue
+    const mp = field.replace(/\\([0-7]{3})/g, (_, o) => String.fromCharCode(parseInt(o, 8)))
+    const inside = mp === '/' || dir === mp || dir.startsWith(mp + '/')
+    if (inside && (!best || mp.length > best.length)) best = mp
+  }
+  return best
+}
+
+async function inDockerContainer(): Promise<boolean> {
+  try {
+    await fs.access('/.dockerenv')
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Create the attachments dir and check it's usable. Uploads are disabled (not fatal) if:
+ * - the dir can't be created or written, or
+ * - q runs in a container and the dir is in the container's own filesystem rather than a bind mount.
+ *   Ticket containers mount ATTACHMENTS_DIR from the *host*, so files written there would be
+ *   invisible to Claude (and lost when q's container is recreated).
+ */
+export async function initAttachments(): Promise<void> {
+  const dir = config.attachmentsDir
+  enabled = false
+  try {
+    await fs.mkdir(dir, { recursive: true })
+    await fs.access(dir, fs.constants.W_OK)
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code
+    disabledReason = `attachments directory ${dir} is not writable by q${code ? ` (${code})` : ''}. ${MOUNT_HINT}`
+    console.warn(`[attachments] ${disabledReason}`)
+    return
+  }
+  if (await inDockerContainer()) {
+    const real = await fs.realpath(dir)
+    if ((await mountPointOf(real)) === '/') {
+      disabledReason = `attachments directory ${dir} is inside q's container filesystem, not a host mount, ` +
+        `so ticket containers would not see the files. ${MOUNT_HINT}`
+      console.warn(`[attachments] ${disabledReason}`)
+      return
+    }
+  }
+  enabled = true
+  console.log(`[attachments] Storing uploads in ${dir}`)
 }
 
 export function attachmentsEnabled(): boolean {
