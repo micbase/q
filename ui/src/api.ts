@@ -71,12 +71,19 @@ export const api = {
     request(`/tickets/${id}/messages`),
 
   // model/effort: omit to keep the ticket's current setting; null/'' resets to CLI default
-  reply: (id: string, content: string, opts: { model?: string | null; effort?: string | null } = {}): Promise<void> =>
+  // attachments: base64 images sent to Claude along with the text
+  reply: (
+    id: string,
+    content: string,
+    opts: { model?: string | null; effort?: string | null; attachments?: { media_type: string; data: string; name?: string }[] } = {},
+  ): Promise<void> =>
     request(`/tickets/${id}/reply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content, ...opts }),
     }),
+
+  attachmentUrl: (ticketId: string, file: string): string => `${BASE}/tickets/${ticketId}/attachments/${file}`,
 
   getStatus: (): Promise<Status> =>
     request('/status'),

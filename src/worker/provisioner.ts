@@ -7,6 +7,7 @@ import { getInstallationToken, cloneRepoIfNeeded, setupGitCredentials, setupGitI
 import { checkAndArchiveIfMerged } from './merge-watcher'
 import { stopDevServer } from './dev-server'
 import { appendLog } from '../logs/log-buffer'
+import { attachmentsEnabled, ensureTicketDir, CONTAINER_ATTACHMENTS_DIR } from './attachments'
 
 const LABEL_MANAGED = 'q.managed'
 
@@ -84,16 +85,23 @@ export async function ensureRunning(project: Project, ticketId: string): Promise
 
   await pullImage(config.projectImage)
 
+  const binds = [
+    `${config.projectsDir}/${project.name}:/workspace`,
+    `${config.sessionsDir}/${ticketId}:/home/${config.containerUser}/.claude`,
+    `${config.sessionsDir}/.credentials.json:/home/${config.containerUser}/.claude/.credentials.json`,
+  ]
+  if (attachmentsEnabled()) {
+    // Create it first so Docker doesn't create it root-owned; later uploads show up live through the mount
+    const dir = await ensureTicketDir(ticketId)
+    binds.push(`${dir}:${CONTAINER_ATTACHMENTS_DIR}:ro`)
+  }
+
   const { HostConfig: extraHostConfig, ...extraOpts } = config.dockerRunOptions
   const container = await getDocker().createContainer({
     Image: config.projectImage,
     Labels: { [LABEL_MANAGED]: 'true' },
     HostConfig: {
-      Binds: [
-        `${config.projectsDir}/${project.name}:/workspace`,
-        `${config.sessionsDir}/${ticketId}:/home/${config.containerUser}/.claude`,
-        `${config.sessionsDir}/.credentials.json:/home/${config.containerUser}/.claude/.credentials.json`,
-      ],
+      Binds: binds,
       ...extraHostConfig,
     },
     ...extraOpts,
