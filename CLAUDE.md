@@ -121,7 +121,7 @@ Run `sql/1.sql` once to create tables:
 psql -U postgres -f sql/1.sql
 ```
 
-Tables: `projects`, `tickets`, `messages`
+Tables: `projects`, `tickets`, `messages`, `attachments`
 
 - `tickets.project_id` references `projects.id`
 - `tickets.container_status` tracks the Docker container lifecycle (`stopped` / `starting` / `running`)
@@ -167,6 +167,14 @@ Containers are stateless. Conversation history is derived from the `messages` ta
 3. User posts reply via `POST /api/tickets/:id/reply`
 4. User reply is inserted into `messages`, ticket re-queued
 5. Scheduler picks up ticket, derives conversation from `messages`, pipes to CLI
+
+## Image Attachments
+
+- The reply box accepts images via the 📎 button, paste (Ctrl/Cmd+V), or drag-and-drop. `ui/src/images.ts` downscales/re-encodes as JPEG if an image is over 2000px on its long side, over 3.5 MB, or in a type Claude can't read (e.g. HEIC).
+- `POST /api/tickets/:id/reply` takes `attachments: [{ media_type, data (base64), name? }]` (png/jpeg/gif/webp, max 10, ≤3.75 MB decoded each, which is the API's 5 MB base64 limit). `content` may be empty if images are attached.
+- Bytes are stored in the `attachments` table. `messages.attachments` (JSONB) holds only metadata (`{id, media_type, name, size}`), so replay and SSE never carry image data. `GET /api/attachments/:id` serves the bytes.
+- When the resumed turn's last user message has images, `callClaude` adds `--input-format stream-json` and writes a single user message to stdin with image blocks followed by a text block. Turns without images still pipe plain text.
+- Dry run ignores attachments.
 
 ## Model Selection
 

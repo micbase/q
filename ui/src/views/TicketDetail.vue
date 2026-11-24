@@ -174,8 +174,26 @@
       <template v-for="(g, gi) in grouped" :key="gi">
         <!-- User message -->
         <div v-if="g.kind === 'msg' && g.msg!.message_type === 'text' && g.msg!.role === 'user'" class="flex justify-end pl-16">
-          <div class="bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-2 text-base whitespace-pre-wrap text-left">
-            {{ g.msg!.content }}
+          <div class="flex flex-col items-end gap-1 min-w-0">
+            <div v-if="g.msg!.attachments?.length" class="flex flex-wrap justify-end gap-1">
+              <a
+                v-for="a in g.msg!.attachments"
+                :key="a.id"
+                :href="api.attachmentUrl(a.id)"
+                target="_blank"
+                :title="a.name ?? 'image'"
+              >
+                <img
+                  :src="api.attachmentUrl(a.id)"
+                  :alt="a.name ?? 'attached image'"
+                  class="max-h-48 max-w-full rounded-xl border border-gray-200 object-contain bg-gray-50"
+                  loading="lazy"
+                />
+              </a>
+            </div>
+            <div v-if="g.msg!.content" class="bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-2 text-base whitespace-pre-wrap text-left">
+              {{ g.msg!.content }}
+            </div>
           </div>
         </div>
 
@@ -290,8 +308,13 @@
       <p class="text-red-600 text-sm">{{ replyError }}</p>
     </div>
 
-    <!-- Reply box -->
-    <div class="border-t border-gray-200 px-4 pt-2 pb-3 flex flex-col gap-2 shrink-0">
+    <!-- Reply box (paste or drop images onto it) -->
+    <div
+      :class="['border-t px-4 pt-2 pb-3 flex flex-col gap-2 shrink-0 transition-colors', dragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-200']"
+      @dragover.prevent="onDragOver"
+      @dragleave="dragActive = false"
+      @drop.prevent="onDrop"
+    >
       <!-- Model/effort for the next turn -->
       <div class="flex items-start gap-2 text-xs">
         <ModelPicker
@@ -309,9 +332,41 @@
           <option v-for="e in EFFORT_OPTIONS" :key="e.value" :value="e.value">{{ e.label }}</option>
         </select>
       </div>
+      <!-- Pending image attachments -->
+      <div v-if="pendingImages.length || preparingImages" class="flex flex-wrap gap-2">
+        <div v-for="(img, i) in pendingImages" :key="img.previewUrl" class="relative">
+          <img :src="img.previewUrl" :alt="img.name ?? 'image'" :title="img.name" class="h-16 w-16 object-cover rounded-lg border border-gray-200" />
+          <button
+            @click="removePendingImage(i)"
+            :disabled="sending"
+            title="Remove image"
+            class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-700 text-white text-xs leading-none flex items-center justify-center hover:bg-gray-900"
+          >×</button>
+        </div>
+        <div v-if="preparingImages" class="h-16 w-16 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-xs text-gray-400 animate-pulse">…</div>
+      </div>
       <div class="flex gap-2">
+        <input
+          ref="fileInputEl"
+          type="file"
+          accept="image/*"
+          multiple
+          class="hidden"
+          @change="onFileInput"
+        />
+        <button
+          @click="fileInputEl?.click()"
+          :disabled="inputDisabled || pendingImages.length >= MAX_ATTACHMENTS"
+          title="Attach images (you can also paste or drop them)"
+          class="border border-gray-300 text-gray-500 px-2.5 rounded-lg hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50 shrink-0"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+            <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+          </svg>
+        </button>
         <textarea
           v-model="reply"
+          @paste="onPaste"
           :placeholder="ticketStatus === 'done' ? 'Follow up...' : 'Type your reply...'"
           :disabled="inputDisabled"
           @keydown.enter.meta.prevent="sendReply"
@@ -321,7 +376,7 @@
         ></textarea>
         <button
           @click="sendReply"
-          :disabled="!reply.trim() || inputDisabled"
+          :disabled="!canSend"
           class="bg-blue-600 text-white px-4 rounded-lg text-base font-medium hover:bg-blue-700 disabled:opacity-50"
         >Send</button>
       </div>
@@ -500,6 +555,8 @@ import EditDiff from '../components/EditDiff.vue'
 import { EFFORT_OPTIONS } from '../models'
 import ModelPicker from '../components/ModelPicker.vue'
 import { marked } from 'marked'
+import { prepareImage, imageFilesFrom, MAX_ATTACHMENTS, type PendingImage } from '../images'
+import type { AttachmentMeta } from '../../../shared/types'
 import DOMPurify from 'dompurify'
 
 interface DisplayMsg {
@@ -513,6 +570,7 @@ interface DisplayMsg {
   tool_result_for_id?: string
   is_error?: boolean
   parent_tool_use_id?: string
+  attachments?: AttachmentMeta[]
 }
 
 interface ReadEntry {
@@ -574,6 +632,71 @@ const isDevServerActive = computed(() =>
 )
 
 const inputDisabled = computed(() => sending.value || isRunning.value)
+
+// Images queued for the next reply (pasted, dropped, or picked via the attach button)
+const pendingImages = ref<PendingImage[]>([])
+const preparingImages = ref(0)
+const dragActive = ref(false)
+const fileInputEl = ref<HTMLInputElement | null>(null)
+
+const canSend = computed(() =>
+  !inputDisabled.value && preparingImages.value === 0 && (!!reply.value.trim() || pendingImages.value.length > 0)
+)
+
+async function addImages(files: File[]) {
+  if (!files.length) return
+  replyError.value = ''
+  const room = MAX_ATTACHMENTS - pendingImages.value.length - preparingImages.value
+  if (files.length > room) {
+    replyError.value = `At most ${MAX_ATTACHMENTS} images per reply`
+    files = files.slice(0, Math.max(0, room))
+  }
+  await Promise.all(files.map(async (f) => {
+    preparingImages.value++
+    try {
+      pendingImages.value.push(await prepareImage(f))
+    } catch (err) {
+      replyError.value = err instanceof Error ? err.message : 'Failed to attach image'
+    } finally {
+      preparingImages.value--
+    }
+  }))
+}
+
+function removePendingImage(i: number) {
+  const [img] = pendingImages.value.splice(i, 1)
+  if (img) URL.revokeObjectURL(img.previewUrl)
+}
+
+function clearPendingImages() {
+  for (const img of pendingImages.value) URL.revokeObjectURL(img.previewUrl)
+  pendingImages.value = []
+}
+
+function onPaste(e: ClipboardEvent) {
+  if (inputDisabled.value) return
+  const files = imageFilesFrom(e.clipboardData)
+  if (!files.length) return // plain text paste — let the textarea handle it
+  e.preventDefault()
+  void addImages(files)
+}
+
+function onDragOver(e: DragEvent) {
+  if (inputDisabled.value) return
+  if (Array.from(e.dataTransfer?.types ?? []).includes('Files')) dragActive.value = true
+}
+
+function onDrop(e: DragEvent) {
+  dragActive.value = false
+  if (inputDisabled.value) return
+  void addImages(imageFilesFrom(e.dataTransfer))
+}
+
+function onFileInput(e: Event) {
+  const input = e.target as HTMLInputElement
+  void addImages(Array.from(input.files ?? []))
+  input.value = '' // allow re-selecting the same file
+}
 
 const devUrl = computed(() => ticket.value?.dev_url ?? null)
 
@@ -768,7 +891,7 @@ async function copyLogs() {
 }
 
 async function sendReply() {
-  if (!reply.value.trim() || sending.value) return
+  if (!canSend.value) return
   sending.value = true
   replyError.value = ''
   try {
@@ -778,11 +901,15 @@ async function sendReply() {
     await api.reply(props.id, reply.value.trim(), {
       ...(modelChanged && { model: replyModel.value || null }),
       ...(effortChanged && { effort: replyEffort.value || null }),
+      ...(pendingImages.value.length && {
+        attachments: pendingImages.value.map(({ media_type, data, name }) => ({ media_type, data, name })),
+      }),
     })
     if ((modelChanged || effortChanged) && ticket.value) {
       ticket.value = { ...ticket.value, model: replyModel.value || undefined, effort: replyEffort.value || undefined }
     }
     reply.value = ''
+    clearPendingImages()
   } catch (err) {
     replyError.value = err instanceof Error ? err.message : 'Failed to send reply'
   } finally {
@@ -876,6 +1003,7 @@ function handleEvent(event: MessageStreamEvent) {
     tool_result_for_id: event.tool_result_for_id,
     is_error: event.is_error,
     parent_tool_use_id: event.parent_tool_use_id,
+    attachments: event.attachments ?? undefined,
   })
   if (event.type === 'thinking') {
     expanded.value.add(idx)
@@ -939,7 +1067,7 @@ onMounted(() => {
   load(props.id)
   nextTick(() => scrollEl.value?.addEventListener('scroll', onScroll, { passive: true }))
 })
-watch(() => props.id, load)
+watch(() => props.id, (id) => { clearPendingImages(); load(id) })
 
 // Poll logs every 2s while the drawer is open and the dev server is active
 watchEffect((onCleanup) => {
@@ -965,6 +1093,7 @@ onUnmounted(() => {
   unsubModel?.()
   scrollEl.value?.removeEventListener('scroll', onScroll)
   if (logsPollHandle) clearInterval(logsPollHandle)
+  clearPendingImages()
 })
 </script>
 
